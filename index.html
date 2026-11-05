@@ -271,6 +271,13 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
       <input type="text" id="presets" inputmode="numeric" value="120, 140, 160" style="width:11em">
       <span>쉼표로 구분해서 바꿀 수 있어요. 아기가 크면 늘려 주세요.</span>
     </div>
+    <div class="daymemo" style="display:grid;gap:8px">
+      <label style="margin:0">가족과 같이 쓰기</label>
+      <p class="hint" style="margin:0">이 링크를 카톡으로 보내면, 받은 사람은 계정 없이 열자마자 같이 기록할 수 있어요. 가족 말고는 보내지 마세요.</p>
+      <button class="nowbtn" id="copyLink" type="button" style="justify-self:start">가족에게 보낼 링크 복사</button>
+      <textarea id="linkBox" readonly hidden style="min-height:70px;font-size:.78rem"></textarea>
+      <button id="resetConn" type="button" style="justify-self:start;border:0;background:none;color:var(--muted);font:inherit;font-size:.8rem;text-decoration:underline;padding:0;cursor:pointer">연결 다시 설정</button>
+    </div>
   </section>
 
   <section id="statsView" hidden>
@@ -315,12 +322,22 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
 
 <section class="setup" id="setupView" hidden>
   <h1>우리 아기 수유노트</h1>
-  <p>이 앱은 가족끼리 같이 쓰는 <b>전용 링크</b>로 열어야 기록이 연결돼요. 받은 전용 링크를 그대로 열거나, 아래에 붙여넣어 주세요.</p>
-  <form id="connForm">
-    <label for="connLink" style="font-weight:600;display:block;margin-bottom:6px">전용 링크</label>
-    <textarea id="connLink" placeholder="https://wnsdud551-maker.github.io/feeding-note/#c=..."></textarea>
+  <p><b>가족이 보내준 링크가 있다면</b> 그 링크를 그대로 열거나 아래 토큰 칸에 붙여넣으세요. 그러면 바로 연결돼요.</p>
+  <p><b>처음 설정하는 분이라면</b> 기록을 보관할 비공개 GitHub 저장소 이름과 토큰을 넣어 주세요. 이 정보는 이 폰에만 저장돼요.</p>
+  <form id="connForm" style="display:grid;gap:10px">
+    <div>
+      <label for="connRepo" style="font-weight:600;display:block;margin-bottom:4px">기록 저장소 (비공개)</label>
+      <input id="connRepo" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px">
+    </div>
+    <div>
+      <label for="connToken" style="font-weight:600;display:block;margin-bottom:4px">토큰 또는 가족 링크</label>
+      <textarea id="connToken" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_… 또는 https://…#c=…"></textarea>
+    </div>
     <div class="err" id="connErr"></div>
-    <button class="nowbtn" type="submit" style="padding:10px 20px">연결하기</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="nowbtn" type="submit" style="padding:10px 20px">연결하기</button>
+      <button class="nowbtn" type="button" id="setupBack" style="padding:10px 20px;background:var(--paper);color:var(--ink);border:1px solid var(--line)">돌아가기</button>
+    </div>
   </form>
 </section>
 <script src="app.js"></script>

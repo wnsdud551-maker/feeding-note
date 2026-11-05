@@ -11,32 +11,133 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
   };
 
-  /* ---------- connection (script URL + key arrive through the private link, never in this public code) ---------- */
-  const CKEY = "feednote-conn-v1";
+  /* ---------- connection: records live in a PRIVATE GitHub repo, reached with a token that arrives
+     through the family link or the setup screen — never in this public code ---------- */
+  const CKEY = "feednote-conn-v2";
+  const b64url = (str) => btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64url = (s) => { const b = s.replace(/-/g, "+").replace(/_/g, "/"); return decodeURIComponent(escape(atob(b + "===".slice((b.length + 3) % 4)))); };
   function readHashConn() {
     const m = location.hash.match(/[#&]c=([A-Za-z0-9_\-]+)/);
     if (!m) return null;
-    try {
-      const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
-      const json = decodeURIComponent(escape(atob(b64 + "===".slice((b64.length + 3) % 4))));
-      const c = JSON.parse(json);
-      if (c && /^https:\/\/script\.google\.com\//.test(c.u) && c.k) return { u: c.u, k: c.k };
-    } catch (e) {}
+    try { const c = JSON.parse(unb64url(m[1])); if (c && /^[\w.-]+\/[\w.-]+$/.test(c.r) && c.t) return { r: c.r, t: c.t }; } catch (e) {}
     return null;
   }
   let CONN = readHashConn();
   if (CONN) { ls.set(CKEY, CONN); history.replaceState(null, "", location.pathname + location.search); }
   else CONN = ls.get(CKEY, null);
+  const familyLink = () => `${location.origin}${location.pathname}#c=${b64url(JSON.stringify(CONN))}`;
 
-  async function api(action, payload) {
-    if (!CONN) throw { code: "no_conn" };
+  /* ---------- GitHub contents API: one JSON file per day, plus settings.json ---------- */
+  const enc64 = (str) => { const b = new TextEncoder().encode(str); let s = ""; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192)); return btoa(s); };
+  const dec64 = (b64) => { const bin = atob(b64.replace(/\s/g, "")); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder().decode(u); };
+  async function gh(method, path, body, conn) {
+    const c = conn || CONN;
+    if (!c) throw { code: "no_conn" };
     let res;
     try {
-      res = await fetch(CONN.u, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ key: CONN.k, action, ...payload }) });
+      res = await fetch(`https://api.github.com/repos/${c.r}/contents/${path}`, {
+        method, cache: "no-store",
+        headers: { Authorization: `Bearer ${c.t}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
     } catch (e) { throw { code: "network" }; }
-    let j; try { j = await res.json(); } catch (e) { throw { code: "bad_response" }; }
-    if (!j.ok) throw { code: j.error || "server" };
-    return j;
+    if (res.status === 404 && method === "GET") return null;
+    if (res.status === 401 || (res.status === 403 && res.headers.get("x-ratelimit-remaining") !== "0")) throw { code: "key" };
+    if (res.status === 404) throw { code: "key" };
+    if (res.status === 409 || res.status === 422) throw { code: "conflict" };
+    if (!res.ok) throw { code: res.status === 403 ? "rate" : "server" };
+    return res.json();
+  }
+  const files = {}; // path -> {data, sha}
+  async function readJson(path, conn) {
+    const j = await gh("GET", path, null, conn);
+    const f = j ? { data: JSON.parse(dec64(j.content) || "{}"), sha: j.sha } : { data: null, sha: null };
+    if (!conn) files[path] = f;
+    return f;
+  }
+  async function writeJson(path, data, sha, msg, conn) {
+    const j = await gh("PUT", path, { message: msg, content: enc64(JSON.stringify(data, null, 1)), ...(sha ? { sha } : {}) }, conn);
+    const f = { data, sha: j.content.sha };
+    if (!conn) files[path] = f;
+    return f;
+  }
+  // read-modify-write with retry when the other phone saved the same file first
+  let chain = Promise.resolve();
+  function mutate(path, blank, fn, msg) {
+    const run = async () => {
+      let f = files[path] || await readJson(path);
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const data = JSON.parse(JSON.stringify(f.data || blank()));
+        const result = fn(data);
+        if (!result.changed) return result;
+        try { await writeJson(path, data, f.sha, msg); return result; }
+        catch (e) { if (e.code !== "conflict") throw e; f = await readJson(path); }
+      }
+      throw { code: "server" };
+    };
+    const p = chain.then(run, run);
+    chain = p.catch(() => {});
+    return p;
+  }
+  const dayPath = (d) => `days/${d.slice(0, 7)}/${d}.json`;
+  const blankDay = (date) => () => ({ date, hours: {}, memo: null });
+  const validDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d));
+  function prevKey(k) { const d = parseKey(k); d.setDate(d.getDate() - 1); return keyOf(d); }
+  function daySummary(d) {
+    const o = { feeds: 0, ml: 0, pee: 0, poo: 0 };
+    Object.values((d && d.hours) || {}).forEach((v) => { if (v.ml) { o.feeds++; o.ml += v.ml; } o.pee += cnt(v.pee); o.poo += cnt(v.poo); });
+    return o;
+  }
+  let settingsCache = null, settingsAt = 0;
+
+  async function api(action, q) {
+    if (action === "day") {
+      if (!validDate(q.date)) throw { code: "server" };
+      const jobs = [readJson(dayPath(q.date))];
+      if (q.withPrev) jobs.push(readJson(dayPath(prevKey(q.date))));
+      if (!settingsCache || Date.now() - settingsAt > 60000) jobs.push(readJson("settings.json").then((f) => { settingsCache = f.data || {}; settingsAt = Date.now(); }));
+      const [d, p] = await Promise.all(jobs);
+      return { rows: (d.data && d.data.hours) || {}, prevRows: q.withPrev ? ((p.data && p.data.hours) || {}) : {}, memo: (d.data && d.data.memo && d.data.memo.text) || "", settings: settingsCache || {} };
+    }
+    if (action === "saveRow") {
+      const v = q.row || {};
+      const clean = { min: v.min ?? null, ml: v.ml ?? null, pee: cnt(v.pee), poo: cnt(v.poo), memo: String(v.memo || "").slice(0, 2000), at: q.at };
+      const empty = isEmpty(clean);
+      const r = await mutate(dayPath(q.date), blankDay(q.date), (d) => {
+        const cur = d.hours[q.hour];
+        if (cur && cur.at && cur.at > q.at) return { changed: false, applied: false, row: cur };
+        if (empty) { if (!cur) return { changed: false, applied: true, row: null }; delete d.hours[q.hour]; return { changed: true, applied: true, row: null }; }
+        d.hours[q.hour] = clean;
+        return { changed: true, applied: true, row: clean };
+      }, `${q.date} ${q.hour}시`);
+      return r;
+    }
+    if (action === "saveMemo") {
+      return mutate(dayPath(q.date), blankDay(q.date), (d) => {
+        if (d.memo && d.memo.at > q.at) return { changed: false, applied: false };
+        if ((d.memo ? d.memo.text : "") === q.memo) return { changed: false, applied: true };
+        d.memo = { text: String(q.memo).slice(0, 5000), at: q.at };
+        return { changed: true, applied: true };
+      }, `${q.date} 메모`);
+    }
+    if (action === "saveSettings") {
+      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9) };
+      await mutate("settings.json", () => ({}), (d) => {
+        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets)) return { changed: false };
+        d.birth = want.birth; d.presets = want.presets; return { changed: true };
+      }, "설정");
+      settingsCache = want; settingsAt = Date.now();
+      return {};
+    }
+    if (action === "stats") {
+      const keys = []; for (let d = parseKey(q.start); keyOf(d) <= q.end; d.setDate(d.getDate() + 1)) keys.push(keyOf(d));
+      const today = keyOf(new Date());
+      const got = await Promise.all(keys.filter((k) => k <= today).map((k) => readJson(dayPath(k)).then((f) => [k, f.data])));
+      const days = {};
+      got.forEach(([k, d]) => { if (!d) return; const s = daySummary(d); if (s.feeds || s.ml || s.pee || s.poo) days[k] = s; });
+      return { days };
+    }
+    throw { code: "server" };
   }
 
   const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], loadToken: 0, online: true };
@@ -128,7 +229,7 @@
         if (!j.applied && !timers[hh]) renderRows(); // the other phone had a newer edit
       }
       setOnline(true);
-      setStatus(j.applied ? "저장됨 · 구글 시트에 기록했어요" : "같은 칸을 상대방이 더 나중에 고쳐서 그 기록을 보여드려요");
+      setStatus(j.applied ? "저장됨 · 가족 화면에도 20초 안에 반영돼요" : "같은 칸을 상대방이 더 나중에 고쳐서 그 기록을 보여드려요");
     } catch (e) { handleErr(e); }
     finally {
       inflight[hh] = false;
@@ -136,7 +237,8 @@
     }
   }
   function handleErr(e) {
-    if (e && e.code === "key") { setStatus("연결 비밀번호가 맞지 않아요. 전용 링크로 다시 열어 주세요.", true); return; }
+    if (e && e.code === "key") { setStatus("저장소에 들어갈 수 없어요. 토큰이 만료됐거나 권한이 바뀌었을 수 있어요. 아래 [연결 다시 설정]을 눌러 주세요.", true); return; }
+    if (e && e.code === "rate") { setStatus("잠시 요청이 너무 많았어요. 1분쯤 뒤에 자동으로 다시 저장해요.", true); return; }
     setOnline(false);
     setStatus("지금은 저장하지 못했어요. 이 폰에 보관해 두었다가 연결되면 자동으로 올려요.", true);
   }
@@ -156,7 +258,7 @@
         dropPending(key, val.at); ok++;
       } catch (e) { return; }
     }
-    if (ok) { setStatus("저장하지 못했던 기록을 구글 시트에 올렸어요"); loadDay(true); }
+    if (ok) { setStatus("저장하지 못했던 기록을 올렸어요"); loadDay(true); }
   }
 
   /* ---------- render: log ---------- */
@@ -254,7 +356,11 @@
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
   }
   function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null; }
-  setInterval(() => { if (!document.hidden && CONN && !busy() && $("statsView").hidden) loadDay(true); }, 20000);
+  setInterval(() => {
+    if (document.hidden || !CONN || busy()) return;
+    if (Object.keys(loadPending()).length) replayPending();
+    else if ($("statsView").hidden) loadDay(true);
+  }, 20000);
 
   /* ---------- day memo & settings ---------- */
   let memoTimer = null, memoBusy = false, memoAgain = false;
@@ -513,20 +619,41 @@
   $("sPrev").addEventListener("click", () => shiftPeriod(-1));
   $("sNext").addEventListener("click", () => shiftPeriod(1));
 
-  /* ---------- setup screen (first open without the private link) ---------- */
-  $("connForm").addEventListener("submit", (e) => {
+  /* ---------- setup screen + family link ---------- */
+  $("connRepo").value = (CONN && CONN.r) || "wnsdud551-maker/feeding-note-data";
+  $("connForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const raw = $("connLink").value.trim();
+    const raw = $("connToken").value.trim();
     const m = raw.match(/[#&]c=([A-Za-z0-9_\-]+)/);
-    if (!m) { $("connErr").textContent = "전용 링크 전체를 붙여넣어 주세요. #c= 로 끝나는 긴 주소예요."; return; }
-    location.hash = "c=" + m[1];
+    let c;
+    if (m) { try { c = JSON.parse(unb64url(m[1])); } catch (er) {} }
+    else c = { r: $("connRepo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/$/, ""), t: raw };
+    if (!c || !/^[\w.-]+\/[\w.-]+$/.test(c.r || "") || !c.t) { $("connErr").textContent = "저장소 이름과 토큰을 확인해 주세요."; return; }
+    $("connErr").textContent = "연결을 확인하는 중…";
+    try {
+      const f = await readJson("settings.json", c);
+      // a test write proves the token can save records
+      await writeJson("settings.json", { birth: "", presets: [120, 140, 160], ...(f.data || {}) }, f.sha, "연결 확인", c);
+    } catch (er) {
+      $("connErr").textContent = er.code === "network" ? "인터넷 연결을 확인해 주세요." : "저장소에 저장할 수 없어요. 저장소 이름, 토큰 권한(Contents: Read and write)을 확인해 주세요.";
+      return;
+    }
+    ls.set(CKEY, { r: c.r, t: c.t });
     location.reload();
   });
+  $("copyLink").addEventListener("click", async () => {
+    const link = familyLink();
+    $("linkBox").value = link; $("linkBox").hidden = false;
+    try { await navigator.clipboard.writeText(link); $("copyLink").textContent = "복사했어요 ✓ 카톡에 붙여넣어 보내세요"; }
+    catch (e) { $("linkBox").select(); $("copyLink").textContent = "아래 링크를 길게 눌러 복사하세요"; }
+  });
+  $("setupBack").addEventListener("click", () => { $("setupView").hidden = true; $("app").hidden = false; });
+  $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- boot ---------- */
   renderTitle(); renderRows();
   if (!CONN) {
-    $("setupView").hidden = false; $("app").hidden = true;
+    $("setupView").hidden = false; $("app").hidden = true; $("setupBack").hidden = true;
     return;
   }
   replayPending().finally(() => loadDay());
