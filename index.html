@@ -153,6 +153,8 @@ header.bar {
   padding: 16px 0; border-radius: 14px; cursor: pointer; font-variant-numeric: tabular-nums;
 }
 .chips button small { font-size: .75rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.chips.mins { grid-template-columns: repeat(4, 1fr); }
+.chips.mins button { padding: 13px 0; font-size: 1.05rem; }
 .chips button.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .adj { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; }
 .adj button, .acts button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-weight: 600; border-radius: 12px; padding: 12px 0; cursor: pointer; }
@@ -316,6 +318,18 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
       <button id="mlClear">지우기</button>
       <button id="mlCancel">닫기</button>
       <button id="mlOk" class="ok">확인</button>
+    </div>
+  </div>
+</div>
+
+<div class="picker-bg" id="minSheet" hidden>
+  <div class="picker" role="dialog" aria-modal="true" aria-labelledby="minTitle">
+    <h3 id="minTitle">몇 분?</h3>
+    <div class="chips mins" id="minChips"></div>
+    <div class="acts">
+      <button id="minClear">지우기</button>
+      <button id="minCancel">닫기</button>
+      <button id="minNow" class="ok">지금</button>
     </div>
   </div>
 </div>

@@ -161,7 +161,7 @@
     el.className = "grid row"; el.setAttribute("role", "row");
     el.innerHTML = `
       <div class="hour">${hh}시</div>
-      <input id="m${hh}" inputmode="numeric" type="number" min="0" max="59" placeholder="분" aria-label="${hh}시 분">
+      <input id="m${hh}" class="mlbtn" inputmode="none" readonly placeholder="분" aria-label="${hh}시 분, 누르면 선택">
       <input id="ml${hh}" class="mlbtn" inputmode="none" readonly placeholder="ml" aria-label="${hh}시 분유 ml, 누르면 선택">
       <button class="chk pee" id="p${hh}" data-count="0" data-label="소">소</button>
       <button class="chk poo" id="d${hh}" data-count="0" data-label="대">대</button>
@@ -173,11 +173,12 @@
     setCount(r.pee, 0, hh); setCount(r.poo, 0, hh);
 
     const onEdit = () => scheduleSave(hh, 600);
-    r.m.addEventListener("input", onEdit);
+    r.m.addEventListener("click", (e) => { e.preventDefault(); r.m.blur(); openMinPicker(hh); });
+    r.m.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMinPicker(hh); } });
     r.ml.addEventListener("click", (e) => { e.preventDefault(); r.ml.blur(); openPicker(hh); });
     r.ml.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(hh); } });
     r.memo.addEventListener("input", () => { grow(r.memo); onEdit(); });
-    [r.m, r.memo].forEach((i) => i.addEventListener("blur", () => scheduleSave(hh, 0)));
+    r.memo.addEventListener("blur", () => scheduleSave(hh, 0));
     [r.pee, r.poo].forEach((b) => b.addEventListener("click", () => {
       const n = (Number(b.dataset.count) + 1) % (MAXC + 1);
       setCount(b, n, hh);
@@ -275,7 +276,7 @@
       const v = (local && (!server || (server.at || "") < local.at)) ? local : (server || {});
       const act = document.activeElement;
       if (!timers[r.h] && !inflight[r.h]) {
-        if (act !== r.m) r.m.value = v.min ?? "";
+        if (pickMinHour !== r.h) r.m.value = v.min ?? "";
         if (pickHour !== r.h) r.ml.value = v.ml ?? "";
         if (act !== r.memo) { r.memo.value = v.memo || ""; grow(r.memo); }
         setCount(r.pee, cnt(v.pee), r.h); setCount(r.poo, cnt(v.poo), r.h);
@@ -358,7 +359,7 @@
     const pr = Array.isArray(st.presets) ? parsePresets(st.presets.join(",")) : [];
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
   }
-  function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null; }
+  function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null || pickMinHour != null; }
   setInterval(() => {
     if (document.hidden || !CONN || busy()) return;
     if (Object.keys(loadPending()).length) replayPending();
@@ -415,7 +416,7 @@
     const hh = pickHour, r = R[Number(hh)];
     r.ml.value = v === "" || v == null ? "" : String(Math.max(0, Math.min(1000, Math.round(Number(v)))));
     const now = new Date();
-    if (r.ml.value && r.m.value === "" && S.date === keyOf(now) && Number(hh) === now.getHours()) r.m.value = now.getMinutes();
+    if (r.ml.value && r.m.value === "" && S.date === keyOf(now) && Number(hh) === now.getHours()) r.m.value = nowMin5();
     closePicker();
     scheduleSave(hh, 0);
   }
@@ -429,6 +430,39 @@
   $("mlCancel").addEventListener("click", closePicker);
   $("mlSheet").addEventListener("click", (e) => { if (e.target === $("mlSheet")) closePicker(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mlSheet").hidden) closePicker(); });
+
+  /* ---------- minute picker (5-minute steps) ---------- */
+  const nowMin5 = () => Math.min(55, Math.round(new Date().getMinutes() / 5) * 5);
+  let pickMinHour = null;
+  function openMinPicker(hh) {
+    pickMinHour = hh;
+    const cur = R[Number(hh)].m.value;
+    $("minTitle").textContent = `${Number(hh)}시 몇 분?`;
+    let html = "";
+    for (let m = 0; m < 60; m += 5) html += `<button data-v="${m}" class="${cur !== "" && Number(cur) === m ? "sel" : ""}">${pad(m)}<small>분</small></button>`;
+    $("minChips").innerHTML = html;
+    const now = new Date();
+    const isNowHour = S.date === keyOf(now) && Number(hh) === now.getHours();
+    $("minNow").hidden = !isNowHour;
+    $("minNow").textContent = `지금 (${pad(nowMin5())}분)`;
+    $("minSheet").hidden = false;
+    const sel = $("minChips").querySelector(".sel") || $("minChips").querySelector("button");
+    if (sel) sel.focus({ preventScroll: true });
+  }
+  function closeMinPicker() { $("minSheet").hidden = true; const r = pickMinHour != null && R[Number(pickMinHour)]; pickMinHour = null; if (r) r.m.focus({ preventScroll: true }); }
+  function applyMin(v) {
+    if (pickMinHour == null) return;
+    const hh = pickMinHour;
+    R[Number(hh)].m.value = v === "" || v == null ? "" : String(Number(v));
+    closeMinPicker();
+    scheduleSave(hh, 0);
+  }
+  $("minChips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) applyMin(b.dataset.v); });
+  $("minNow").addEventListener("click", () => applyMin(nowMin5()));
+  $("minClear").addEventListener("click", () => applyMin(""));
+  $("minCancel").addEventListener("click", closeMinPicker);
+  $("minSheet").addEventListener("click", (e) => { if (e.target === $("minSheet")) closeMinPicker(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("minSheet").hidden) closeMinPicker(); });
 
   /* ---------- navigation ---------- */
   function flushAll() {
@@ -452,7 +486,7 @@
     const now = new Date();
     if (S.date !== keyOf(now)) goDate(keyOf(now));
     const r = R[now.getHours()];
-    if (r.m.value === "") { r.m.value = now.getMinutes(); scheduleSave(r.h, 600); }
+    if (r.m.value === "") { r.m.value = nowMin5(); scheduleSave(r.h, 600); }
     r.el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     setTimeout(() => openPicker(r.h), 250);
   });
