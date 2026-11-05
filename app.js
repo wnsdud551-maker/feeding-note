@@ -409,9 +409,22 @@
     else if (openSheetId === "minSheet") closeMinPicker();
     openSheetId = null;
   }
+  // a guard entry sits on top of the start page: the first back on the log screen only shows a notice,
+  // a second back within 2 seconds leaves the app
+  let exitTimer = null;
+  function armGuard() { if (!ourState()) pushBack(); }
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 2000);
+  }
   window.addEventListener("popstate", () => {
-    if (openSheetId) hideSheet();
-    else if (!$("statsView").hidden) showTab(false, true);
+    if (openSheetId) { hideSheet(); return; }
+    if (!$("statsView").hidden) { showTab(false, true); return; }
+    if (!ourState()) {
+      toast("한 번 더 누르면 앱이 닫혀요");
+      clearTimeout(exitTimer);
+      exitTimer = setTimeout(armGuard, 2000);
+    }
   });
   ["mlSheet", "minSheet"].forEach((id) => $(id).addEventListener("click", (e) => { if (e.target === $(id)) requestClose(); }));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSheetId) requestClose(); });
@@ -708,11 +721,31 @@
   $("setupBack").addEventListener("click", () => { $("setupView").hidden = true; $("app").hidden = false; });
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
+  /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
+  const APP_VERSION = "20261105075956";
+  async function checkUpdate() {
+    if (busy()) return;
+    try {
+      const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
+      const j = await r.json();
+      if (j.v && j.v !== APP_VERSION && !busy()) {
+        // reload once per new version, so a stale cache can never cause a reload loop
+        let tried = null; try { tried = sessionStorage.getItem("feednote-reload"); } catch (e) {}
+        if (tried === j.v) return;
+        try { sessionStorage.setItem("feednote-reload", j.v); } catch (e) {}
+        flushAll(); location.reload();
+      }
+    } catch (e) {}
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
+
   /* ---------- boot ---------- */
   renderTitle(); renderRows();
   if (!CONN) {
     $("setupView").hidden = false; $("app").hidden = true; $("setupBack").hidden = true;
     return;
   }
+  armGuard();
   replayPending().finally(() => loadDay());
+  checkUpdate();
 })();

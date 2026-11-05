@@ -167,6 +167,7 @@ header.bar {
 .setup p { margin: 0; color: var(--muted); }
 .setup textarea { width: 100%; min-height: 90px; font: inherit; font-size: .85rem; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 .setup .err { color: var(--poo); font-size: .85rem; min-height: 1.2em; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 999px; font-size: .88rem; white-space: nowrap; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -351,6 +352,7 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
     </div>
   </form>
 </section>
-<script src="app.js"></script>
+<div class="toast" id="toast" hidden></div>
+<script src="app.js?v=20261105075956"></script>
 </body>
 </html>
