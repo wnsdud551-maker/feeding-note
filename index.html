@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리 아기 수유노트</title>
+<meta name="theme-color" content="#f3f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11161c" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="수유노트">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Layout: one hourly ledger like the paper sheet — sticky date bar + 24 rows, plus a stats tab; tuned for one-handed night use */
+:root {
+  --bg: #f3f6f8;
+  --paper: #ffffff;
+  --ink: #1f2d3d;
+  --muted: #6b7a89;
+  --line: #dde4ea;
+  --accent: #3b6fd8;
+  --accent-soft: #e5edfc;
+  --pee: #b88a00;
+  --pee-soft: #fdf3cf;
+  --pee-line: #e4b51a;
+  --poo: #8a5a2e;
+  --poo-soft: #f2e7dc;
+  --poo-line: #b9875a;
+  --now: #fff6e0;
+  --font-display: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --paper: #182029; --ink: #dfe6ee; --muted: #8696a7; --line: #26313d;
+    --accent: #7ea4f0; --accent-soft: #1e2b42; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
+    --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --paper: #182029; --ink: #dfe6ee; --muted: #8696a7; --line: #26313d;
+  --accent: #7ea4f0; --accent-soft: #1e2b42; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
+  --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; color-scheme: dark;
+}
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font-size: 14px; }
+img { max-width: 100%; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap {
+  max-width: 560px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 40px;
+}
+header.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); padding-block: 10px 10px; display: grid; gap: 10px;
+}
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.tabs button, .seg button {
+  border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; font-size: .88rem;
+  padding: 7px 0; border-radius: 9px; cursor: pointer;
+}
+.tabs button[aria-selected=true], .seg button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent); }
+.daterow { display: flex; align-items: center; gap: 8px; }
+.daterow h1, .daterow h2 {
+  flex: 1; min-width: 0; margin: 0; text-align: center; font-family: var(--font-display);
+  font-weight: 400; font-size: 1.25rem; line-height: 1.2; text-wrap: balance;
+}
+.daterow small { display: block; font-family: var(--font-body); font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.dplus { color: var(--accent); font-weight: 600; }
+.iconbtn {
+  width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper);
+  color: var(--ink); font-size: 1.1rem; display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.iconbtn:disabled { opacity: .35; cursor: default; }
+.iconbtn:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.stat { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 7px 4px; text-align: center; min-width: 0; }
+.stat b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stat span { font-size: .72rem; color: var(--muted); letter-spacing: .02em; }
+.stat em { display: block; font-style: normal; font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
+.stat.pee b { color: var(--pee); } .stat.poo b { color: var(--poo); }
+.since { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .85rem; color: var(--muted); }
+.since strong { color: var(--ink); font-weight: 600; }
+.nowbtn {
+  border: 0; background: var(--accent); color: var(--paper); font: inherit; font-weight: 600; font-size: .85rem;
+  padding: 8px 14px; border-radius: 999px; cursor: pointer; flex: none;
+}
+
+.sheet { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.grid { display: grid; grid-template-columns: 42px 46px 60px 40px 40px minmax(0, 1fr); gap: 4px; align-items: center; padding: 5px 8px; }
+.head { font-size: .72rem; color: var(--muted); letter-spacing: .03em; border-bottom: 1px solid var(--line); padding-block: 8px; }
+.head div { text-align: center; } .head div:last-child { text-align: left; padding-left: 4px; }
+.row { border-bottom: 1px solid var(--line); min-height: 44px; }
+.row:last-child { border-bottom: 0; }
+.row.current { background: var(--now); }
+.hour { font-variant-numeric: tabular-nums; font-weight: 600; font-size: .88rem; text-align: center; color: var(--muted); }
+.row.filled .hour { color: var(--ink); }
+.row input, .row textarea {
+  width: 100%; min-width: 0; font: inherit; color: var(--ink); background: transparent;
+  border: 1px solid transparent; border-radius: 8px; padding: 6px 4px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.row input:hover, .row textarea:hover { border-color: var(--line); }
+.row input:focus, .row textarea:focus { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+.row input::placeholder, .row textarea::placeholder { color: var(--line); }
+.row input[type=number] { -moz-appearance: textfield; }
+.row input::-webkit-outer-spin-button, .row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.row textarea { text-align: left; resize: none; overflow: hidden; line-height: 1.35; font-size: .88rem; display: block; }
+.chk {
+  width: 38px; height: 34px; justify-self: center; border-radius: 10px; border: 1.5px solid var(--line);
+  background: transparent; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; padding: 0;
+  font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.chk.pee.on { background: var(--pee-soft); border-color: var(--pee-line); color: var(--pee); font-weight: 600; }
+.chk.poo.on { background: var(--poo-soft); border-color: var(--poo-line); color: var(--poo); font-weight: 600; }
+.total { font-weight: 600; font-variant-numeric: tabular-nums; border-top: 1.5px solid var(--ink); background: var(--bg); }
+.total div { text-align: center; font-size: .88rem; }
+.total div:first-child { font-size: .72rem; }
+.hint { font-size: .76rem; color: var(--muted); margin: 8px 2px 0; line-height: 1.5; }
+
+.daymemo { margin-top: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.daymemo label { font-family: var(--font-display); font-size: 1rem; display: block; margin-bottom: 6px; }
+.daymemo textarea {
+  width: 100%; min-height: 84px; font: inherit; color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; resize: vertical; line-height: 1.5;
+}
+.settings { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+.settings input { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.picker-bg { position: fixed; inset: 0; z-index: 20; background: rgba(10, 16, 24, .45); display: flex; align-items: flex-end; justify-content: center; }
+.picker {
+  width: 100%; max-width: 560px; background: var(--paper); border-radius: 18px 18px 0 0; border: 1px solid var(--line); border-bottom: 0;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: grid; gap: 14px;
+}
+.picker h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; text-align: center; }
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.chips button {
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 600; font-size: 1.15rem;
+  padding: 16px 0; border-radius: 14px; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.chips button small { font-size: .75rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.chips button.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.adj { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; }
+.adj button, .acts button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-weight: 600; border-radius: 12px; padding: 12px 0; cursor: pointer; }
+.adj input { width: 100%; min-width: 0; font: inherit; font-size: 1.1rem; text-align: center; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
+.acts { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+.acts .ok { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+.row input.mlbtn { cursor: pointer; caret-color: transparent; }
+.setup { max-width: 480px; margin: 0 auto; padding-block: 48px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; line-height: 1.6; }
+.setup h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; margin: 0; }
+.setup p { margin: 0; color: var(--muted); }
+.setup textarea { width: 100%; min-height: 90px; font: inherit; font-size: .85rem; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.setup .err { color: var(--poo); font-size: .85rem; min-height: 1.2em; }
+.status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
+.status.warn { color: var(--poo); }
+
+/* stats */
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.statsgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tile { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.tile span { font-size: .75rem; color: var(--muted); letter-spacing: .02em; }
+.tile b { display: block; font-size: 1.45rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tile b small { font-size: .8rem; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.tile em { display: block; font-style: normal; font-size: .76rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; }
+.card h3 { margin: 0 0 2px; font-family: var(--font-display); font-weight: 400; font-size: 1.02rem; }
+.card p.sub { margin: 0 0 10px; font-size: .76rem; color: var(--muted); }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font-family: var(--font-body); font-size: 10px; font-variant-numeric: tabular-nums; }
+.chart .grid-l { stroke: var(--line); stroke-width: 1; }
+.chart .bar { fill: var(--accent); }
+.chart .bar.dim { opacity: .35; }
+.chart .hit { fill: transparent; cursor: pointer; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 8px;
+  padding: 6px 9px; font-size: .76rem; line-height: 1.45; white-space: nowrap; transform: translate(-50%, -100%);
+  font-variant-numeric: tabular-nums; z-index: 2;
+}
+.tablewrap { overflow-x: auto; }
+table.daily { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+table.daily th { font-size: .72rem; color: var(--muted); font-weight: 500; text-align: right; padding: 6px 6px; border-bottom: 1px solid var(--line); }
+table.daily td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+table.daily th:first-child, table.daily td:first-child { text-align: left; }
+table.daily tr.go { cursor: pointer; }
+table.daily tr.go:hover td { background: var(--accent-soft); }
+table.daily td.empty { color: var(--line); }
+table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px solid var(--ink); }
+.empty-note { text-align: center; color: var(--muted); font-size: .85rem; padding: 24px 8px; }
+@media (prefers-reduced-motion: no-preference) { .chk, .row input, .row textarea { transition: background .15s, border-color .15s; } }
+</style>
+</head>
+<body>
+<div id="app">
+<div class="wrap">
+  <header class="bar">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabLog" aria-selected="true">기록</button>
+      <button role="tab" id="tabStats" aria-selected="false">통계</button>
+    </div>
+
+    <div id="logHead" style="display:grid;gap:10px">
+      <div class="daterow">
+        <button class="iconbtn" id="prev" aria-label="이전 날">‹</button>
+        <h1 id="title">수유노트<small>불러오는 중</small></h1>
+        <button class="iconbtn" id="next" aria-label="다음 날">›</button>
+      </div>
+      <div class="summary">
+        <div class="stat"><b id="sFeeds">0</b><span>수유 횟수</span></div>
+        <div class="stat"><b id="sMl">0</b><span>분유 ml</span></div>
+        <div class="stat pee"><b id="sPee">0</b><span>소변</span></div>
+        <div class="stat poo"><b id="sPoo">0</b><span>대변</span></div>
+      </div>
+      <div class="since">
+        <span id="since">수유 기록을 남기면 경과 시간이 보여요</span>
+        <button class="nowbtn" id="nowBtn">지금 기록</button>
+      </div>
+    </div>
+
+    <div id="statsHead" hidden style="display:grid;gap:10px">
+      <div class="seg">
+        <button id="modeWeek" aria-pressed="true">주간</button>
+        <button id="modeMonth" aria-pressed="false">월간</button>
+      </div>
+      <div class="daterow">
+        <button class="iconbtn" id="sPrev" aria-label="이전 기간">‹</button>
+        <h2 id="sTitle">이번 주<small></small></h2>
+        <button class="iconbtn" id="sNext" aria-label="다음 기간">›</button>
+      </div>
+    </div>
+  </header>
+
+  <section id="logView">
+    <div class="sheet" role="table" aria-label="시간별 기록">
+      <div class="grid head" role="row">
+        <div>시간</div><div>분</div><div>분유ml</div><div>소변</div><div>대변</div><div>기타</div>
+      </div>
+      <div id="rows"></div>
+      <div class="grid total" role="row">
+        <div>Total</div><div id="tFeeds">0회</div><div id="tMl">0</div><div id="tPee">0</div><div id="tPoo">0</div><div></div>
+      </div>
+    </div>
+    <p class="hint">소·대 버튼은 누를 때마다 횟수가 올라가요 (소 → 소2 → 소3 …). 5번 다음에 한 번 더 누르면 지워져요. 입력하면 바로 저장되니 그냥 꺼도 돼요.</p>
+
+    <div class="daymemo">
+      <label for="dayMemo">우리 아기의 하루 ♡</label>
+      <textarea id="dayMemo" placeholder="오늘 있었던 일, 컨디션, 병원 일정 등을 적어 두세요"></textarea>
+    </div>
+
+    <div class="settings">
+      <label for="birth">아기 생일</label>
+      <input type="date" id="birth">
+      <span>생일을 넣으면 D+ 날짜가 표시돼요 (태어난 날 = D+1)</span>
+    </div>
+    <div class="settings">
+      <label for="presets">자주 먹는 분유량</label>
+      <input type="text" id="presets" inputmode="numeric" value="120, 140, 160" style="width:11em">
+      <span>쉼표로 구분해서 바꿀 수 있어요. 아기가 크면 늘려 주세요.</span>
+    </div>
+  </section>
+
+  <section id="statsView" hidden>
+    <div class="statsgrid">
+      <div class="tile"><span>하루 평균 분유</span><b id="kAvgMl">–<small>ml</small></b><em id="kTotMl">합계 –</em></div>
+      <div class="tile"><span>하루 평균 수유</span><b id="kAvgFeeds">–<small>회</small></b><em id="kPerFeed">1회 평균 –</em></div>
+      <div class="tile"><span>하루 평균 소변</span><b id="kAvgPee">–<small>회</small></b><em id="kTotPee">합계 –</em></div>
+      <div class="tile"><span>하루 평균 대변</span><b id="kAvgPoo">–<small>회</small></b><em id="kTotPoo">합계 –</em></div>
+    </div>
+    <div class="card">
+      <h3>날짜별 분유량</h3>
+      <p class="sub" id="chartSub">막대를 누르면 그날 자세한 숫자가 보여요</p>
+      <div class="chart" id="chart"></div>
+    </div>
+    <div class="card">
+      <h3>날짜별 기록</h3>
+      <p class="sub">줄을 누르면 그날 기록으로 이동해요</p>
+      <div class="tablewrap"><table class="daily" id="dailyTable"></table></div>
+    </div>
+  </section>
+
+  <div class="status" id="status">연결하는 중…</div>
+</div>
+
+</div>
+<div class="picker-bg" id="mlSheet" hidden>
+  <div class="picker" role="dialog" aria-modal="true" aria-labelledby="mlTitle">
+    <h3 id="mlTitle">분유량</h3>
+    <div class="chips" id="chips"></div>
+    <div class="adj">
+      <button id="mlMinus" aria-label="10ml 줄이기">−10</button>
+      <input id="mlCustom" type="number" inputmode="numeric" min="0" max="1000" placeholder="직접 입력 ml" aria-label="분유량 직접 입력">
+      <button id="mlPlus" aria-label="10ml 늘리기">+10</button>
+    </div>
+    <div class="acts">
+      <button id="mlClear">지우기</button>
+      <button id="mlCancel">닫기</button>
+      <button id="mlOk" class="ok">확인</button>
+    </div>
+  </div>
+</div>
+
+<section class="setup" id="setupView" hidden>
+  <h1>우리 아기 수유노트</h1>
+  <p>이 앱은 가족끼리 같이 쓰는 <b>전용 링크</b>로 열어야 기록이 연결돼요. 받은 전용 링크를 그대로 열거나, 아래에 붙여넣어 주세요.</p>
+  <form id="connForm">
+    <label for="connLink" style="font-weight:600;display:block;margin-bottom:6px">전용 링크</label>
+    <textarea id="connLink" placeholder="https://wnsdud551-maker.github.io/feeding-note/#c=..."></textarea>
+    <div class="err" id="connErr"></div>
+    <button class="nowbtn" type="submit" style="padding:10px 20px">연결하기</button>
+  </form>
+</section>
+<script src="app.js"></script>
+</body>
+</html>
