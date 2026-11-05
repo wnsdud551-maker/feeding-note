@@ -23,9 +23,12 @@
     return null;
   }
   let CONN = readHashConn();
-  if (CONN) { ls.set(CKEY, CONN); history.replaceState(null, "", location.pathname + location.search); }
+  if (CONN) ls.set(CKEY, CONN);
   else CONN = ls.get(CKEY, null);
   const familyLink = () => `${location.origin}${location.pathname}#c=${b64url(JSON.stringify(CONN))}`;
+  // keep the connection in the address, so "홈 화면에 추가" saves a shortcut that is already connected
+  // (home-screen apps get their own storage, separate from the browser or KakaoTalk)
+  if (CONN && !readHashConn()) { try { history.replaceState(null, "", familyLink()); } catch (e) {} }
 
   /* ---------- GitHub contents API: one JSON file per day, plus settings.json ---------- */
   const enc64 = (str) => { const b = new TextEncoder().encode(str); let s = ""; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192)); return btoa(s); };

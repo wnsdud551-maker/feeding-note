@@ -1,7 +1,6 @@
 {
   "name": "우리 아기 수유노트",
   "short_name": "수유노트",
-  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f3f6f8",
