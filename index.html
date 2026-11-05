@@ -159,7 +159,7 @@ header.bar {
 .adj { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; }
 .adj button, .acts button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-weight: 600; border-radius: 12px; padding: 12px 0; cursor: pointer; }
 .adj input { width: 100%; min-width: 0; font: inherit; font-size: 1.1rem; text-align: center; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
-.acts { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+.acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
 .acts .ok { background: var(--accent); border-color: var(--accent); color: var(--paper); }
 .row input.mlbtn { cursor: pointer; caret-color: transparent; }
 .setup { max-width: 480px; margin: 0 auto; padding-block: 48px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; line-height: 1.6; }
@@ -316,8 +316,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
     </div>
     <div class="acts">
       <button id="mlClear">지우기</button>
-      <button id="mlCancel">닫기</button>
-      <button id="mlOk" class="ok">확인</button>
     </div>
   </div>
 </div>
@@ -328,7 +326,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
     <div class="chips mins" id="minChips"></div>
     <div class="acts">
       <button id="minClear">지우기</button>
-      <button id="minCancel">닫기</button>
       <button id="minNow" class="ok">지금</button>
     </div>
   </div>

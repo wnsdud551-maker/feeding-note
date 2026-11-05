@@ -398,38 +398,60 @@
     saveSettings("자주 먹는 분유량을 저장했어요");
   });
 
+  /* ---------- phone back button: closes a picker / leaves stats instead of leaving the app ---------- */
+  let openSheetId = null;
+  const pushBack = () => { try { history.pushState({ fn: 1 }, "", location.href); } catch (e) {} };
+  const ourState = () => !!(history.state && history.state.fn);
+  function showSheet(id) { $(id).hidden = false; openSheetId = id; pushBack(); }
+  function requestClose() { if (ourState()) history.back(); else hideSheet(); }
+  function hideSheet() {
+    if (openSheetId === "mlSheet") closePicker();
+    else if (openSheetId === "minSheet") closeMinPicker();
+    openSheetId = null;
+  }
+  window.addEventListener("popstate", () => {
+    if (openSheetId) hideSheet();
+    else if (!$("statsView").hidden) showTab(false, true);
+  });
+  ["mlSheet", "minSheet"].forEach((id) => $(id).addEventListener("click", (e) => { if (e.target === $(id)) requestClose(); }));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSheetId) requestClose(); });
+
   /* ---------- formula amount picker ---------- */
   let pickHour = null;
+  function markChip(box, v) { box.querySelectorAll("button").forEach((b) => b.classList.toggle("sel", v !== "" && b.dataset.v === String(v))); }
   function openPicker(hh) {
     pickHour = hh;
     const cur = R[Number(hh)].ml.value;
     $("mlTitle").textContent = `${Number(hh)}시 분유량`;
-    $("chips").innerHTML = S.presets.map((v) => `<button data-v="${v}" class="${String(v) === cur ? "sel" : ""}">${v}<small>ml</small></button>`).join("");
+    $("chips").innerHTML = S.presets.map((v) => `<button data-v="${v}">${v}<small>ml</small></button>`).join("");
+    markChip($("chips"), cur);
     $("mlCustom").value = cur;
-    $("mlSheet").hidden = false;
+    showSheet("mlSheet");
     const sel = $("chips").querySelector(".sel") || $("chips").querySelector("button");
     if (sel) sel.focus({ preventScroll: true });
   }
-  function closePicker() { $("mlSheet").hidden = true; const r = pickHour != null && R[Number(pickHour)]; pickHour = null; if (r) r.ml.focus({ preventScroll: true }); }
-  function applyMl(v) {
+  function closePicker() {
+    $("mlSheet").hidden = true;
+    const hh = pickHour; pickHour = null;
+    if (hh != null) { scheduleSave(hh, 0); R[Number(hh)].ml.focus({ preventScroll: true }); }
+  }
+  // sets the amount right away; chips close the sheet, −10/+10 and typing keep it open
+  function setMl(v) {
     if (pickHour == null) return;
     const hh = pickHour, r = R[Number(hh)];
     r.ml.value = v === "" || v == null ? "" : String(Math.max(0, Math.min(1000, Math.round(Number(v)))));
     const now = new Date();
     if (r.ml.value && r.m.value === "" && S.date === keyOf(now) && Number(hh) === now.getHours()) r.m.value = nowMin5();
-    closePicker();
-    scheduleSave(hh, 0);
+    markChip($("chips"), r.ml.value);
+    scheduleSave(hh, 600);
   }
-  $("chips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) applyMl(b.dataset.v); });
-  const nudge = (d) => { const raw = $("mlCustom").value; const v = (raw === "" ? S.presets[0] || 0 : Number(raw)) + d; $("mlCustom").value = Math.max(0, v); };
+  $("chips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { setMl(b.dataset.v); requestClose(); } });
+  const nudge = (d) => { const raw = $("mlCustom").value; const v = Math.max(0, (raw === "" ? S.presets[0] || 0 : Number(raw)) + d); $("mlCustom").value = v; setMl(v); };
   $("mlMinus").addEventListener("click", () => nudge(-10));
   $("mlPlus").addEventListener("click", () => nudge(10));
-  $("mlOk").addEventListener("click", () => applyMl($("mlCustom").value));
-  $("mlCustom").addEventListener("keydown", (e) => { if (e.key === "Enter") applyMl($("mlCustom").value); });
-  $("mlClear").addEventListener("click", () => applyMl(""));
-  $("mlCancel").addEventListener("click", closePicker);
-  $("mlSheet").addEventListener("click", (e) => { if (e.target === $("mlSheet")) closePicker(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mlSheet").hidden) closePicker(); });
+  $("mlCustom").addEventListener("input", () => setMl($("mlCustom").value));
+  $("mlCustom").addEventListener("keydown", (e) => { if (e.key === "Enter") requestClose(); });
+  $("mlClear").addEventListener("click", () => { $("mlCustom").value = ""; setMl(""); requestClose(); });
 
   /* ---------- minute picker (5-minute steps) ---------- */
   const nowMin5 = () => Math.min(55, Math.round(new Date().getMinutes() / 5) * 5);
@@ -439,30 +461,27 @@
     const cur = R[Number(hh)].m.value;
     $("minTitle").textContent = `${Number(hh)}시 몇 분?`;
     let html = "";
-    for (let m = 0; m < 60; m += 5) html += `<button data-v="${m}" class="${cur !== "" && Number(cur) === m ? "sel" : ""}">${pad(m)}<small>분</small></button>`;
+    for (let m = 0; m < 60; m += 5) html += `<button data-v="${m}">${pad(m)}<small>분</small></button>`;
     $("minChips").innerHTML = html;
+    markChip($("minChips"), cur === "" ? "" : String(Number(cur)));
     const now = new Date();
-    const isNowHour = S.date === keyOf(now) && Number(hh) === now.getHours();
-    $("minNow").hidden = !isNowHour;
+    $("minNow").hidden = !(S.date === keyOf(now) && Number(hh) === now.getHours());
     $("minNow").textContent = `지금 (${pad(nowMin5())}분)`;
-    $("minSheet").hidden = false;
+    showSheet("minSheet");
     const sel = $("minChips").querySelector(".sel") || $("minChips").querySelector("button");
     if (sel) sel.focus({ preventScroll: true });
   }
   function closeMinPicker() { $("minSheet").hidden = true; const r = pickMinHour != null && R[Number(pickMinHour)]; pickMinHour = null; if (r) r.m.focus({ preventScroll: true }); }
-  function applyMin(v) {
+  function setMin(v) {
     if (pickMinHour == null) return;
     const hh = pickMinHour;
     R[Number(hh)].m.value = v === "" || v == null ? "" : String(Number(v));
-    closeMinPicker();
     scheduleSave(hh, 0);
+    requestClose();
   }
-  $("minChips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) applyMin(b.dataset.v); });
-  $("minNow").addEventListener("click", () => applyMin(nowMin5()));
-  $("minClear").addEventListener("click", () => applyMin(""));
-  $("minCancel").addEventListener("click", closeMinPicker);
-  $("minSheet").addEventListener("click", (e) => { if (e.target === $("minSheet")) closeMinPicker(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("minSheet").hidden) closeMinPicker(); });
+  $("minChips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setMin(b.dataset.v); });
+  $("minNow").addEventListener("click", () => setMin(nowMin5()));
+  $("minClear").addEventListener("click", () => setMin(""));
 
   /* ---------- navigation ---------- */
   function flushAll() {
@@ -504,7 +523,8 @@
   window.addEventListener("online", () => { if (CONN) replayPending(); });
 
   /* ---------- tabs ---------- */
-  function showTab(stats) {
+  function showTab(stats, fromPop) {
+    if (stats && $("statsView").hidden && !fromPop) pushBack();
     $("tabLog").setAttribute("aria-selected", String(!stats));
     $("tabStats").setAttribute("aria-selected", String(stats));
     $("logHead").hidden = stats; $("logView").hidden = stats;
@@ -512,7 +532,8 @@
     if (stats) { flushAll(); loadStats(); }
     window.scrollTo(0, 0);
   }
-  $("tabLog").addEventListener("click", () => showTab(false));
+  const leaveStats = () => { if (!$("statsView").hidden && ourState()) history.back(); else showTab(false); };
+  $("tabLog").addEventListener("click", leaveStats);
   $("tabStats").addEventListener("click", () => showTab(true));
 
   /* ---------- stats ---------- */
@@ -593,7 +614,7 @@
   }
   $("dailyTable").addEventListener("click", (e) => {
     const tr = e.target.closest("tr.go"); if (!tr) return;
-    showTab(false); goDate(tr.dataset.k);
+    leaveStats(); goDate(tr.dataset.k);
   });
   function niceMax(v) {
     if (v <= 0) return 400;
