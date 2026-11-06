@@ -592,9 +592,13 @@
     const now = new Date();
     if (S.date !== keyOf(now)) goDate(keyOf(now));
     const r = R[now.getHours()];
-    if (r.m.value === "") { r.m.value = nowMin5(); scheduleSave(r.h, 600); }
+    const hadMl = r.ml.value !== "";
+    if (r.m.value === "") r.m.value = nowMin5();
+    if (!hadMl) r.ml.value = String(S.presets[0] || 120); // usual amount; tap the cell to change it
+    scheduleSave(r.h, 0);
     r.el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    setTimeout(() => openPicker(r.h), 250);
+    if (hadMl) setTimeout(() => openPicker(r.h), 250); // this hour already has a feed: let them adjust it
+    else toast(`${now.getHours()}시 ${pad(Number(r.m.value))}분 · ${r.ml.value}ml 기록했어요`);
   });
 
   $("vitNow").addEventListener("click", () => {
@@ -804,7 +808,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261106150727";
+  const APP_VERSION = "20261106151630";
   async function checkUpdate() {
     if (busy()) return;
     try {
