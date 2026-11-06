@@ -104,7 +104,7 @@
     }
     if (action === "saveRow") {
       const v = q.row || {};
-      const clean = { min: v.min ?? null, ml: v.ml ?? null, pee: cnt(v.pee), poo: cnt(v.poo), memo: String(v.memo || "").slice(0, 2000), at: q.at };
+      const clean = { min: v.min ?? null, ml: v.ml ?? null, vit: !!v.vit, pee: cnt(v.pee), poo: cnt(v.poo), memo: String(v.memo || "").slice(0, 2000), at: q.at };
       const empty = isEmpty(clean);
       const r = await mutate(dayPath(q.date), blankDay(q.date), (d) => {
         const cur = d.hours[q.hour];
@@ -163,11 +163,12 @@
       <div class="hour">${hh}시</div>
       <input id="m${hh}" class="mlbtn" inputmode="none" readonly placeholder="분" aria-label="${hh}시 분, 누르면 선택">
       <input id="ml${hh}" class="mlbtn" inputmode="none" readonly placeholder="ml" aria-label="${hh}시 분유 ml, 누르면 선택">
+      <button class="chk vit" id="v${hh}" aria-pressed="false" aria-label="${hh}시 비타민">V</button>
       <button class="chk pee" id="p${hh}" data-count="0" data-label="소">소</button>
       <button class="chk poo" id="d${hh}" data-count="0" data-label="대">대</button>
       <textarea id="n${hh}" rows="1" placeholder="메모" aria-label="${hh}시 메모"></textarea>`;
     rowsEl.appendChild(el);
-    const r = { el, h: hh, m: el.querySelector(`#m${hh}`), ml: el.querySelector(`#ml${hh}`),
+    const r = { el, h: hh, m: el.querySelector(`#m${hh}`), ml: el.querySelector(`#ml${hh}`), vit: el.querySelector(`#v${hh}`),
       pee: el.querySelector(`#p${hh}`), poo: el.querySelector(`#d${hh}`), memo: el.querySelector(`#n${hh}`) };
     R.push(r);
     setCount(r.pee, 0, hh); setCount(r.poo, 0, hh);
@@ -179,12 +180,14 @@
     r.ml.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(hh); } });
     r.memo.addEventListener("input", () => { grow(r.memo); onEdit(); });
     r.memo.addEventListener("blur", () => scheduleSave(hh, 0));
+    r.vit.addEventListener("click", () => { setVit(r.vit, r.vit.getAttribute("aria-pressed") !== "true"); scheduleSave(hh, 300); });
     [r.pee, r.poo].forEach((b) => b.addEventListener("click", () => {
       const n = (Number(b.dataset.count) + 1) % (MAXC + 1);
       setCount(b, n, hh);
       scheduleSave(hh, 800); // short pause so 소→소2→소3 taps become one save
     }));
   }
+  function setVit(b, on) { b.setAttribute("aria-pressed", on ? "true" : "false"); b.classList.toggle("on", !!on); }
   function setCount(b, n, hh) {
     b.dataset.count = String(n);
     const L = b.dataset.label;
@@ -196,14 +199,14 @@
 
   function rowFromDom(r) {
     const num = (v, max) => { if (v === "" || v == null) return null; const n = Math.round(Number(v)); return isFinite(n) ? Math.max(0, Math.min(max, n)) : null; };
-    return { min: num(r.m.value, 59), ml: num(r.ml.value, 1000), pee: Number(r.pee.dataset.count) || 0, poo: Number(r.poo.dataset.count) || 0, memo: r.memo.value.trim() };
+    return { min: num(r.m.value, 59), ml: num(r.ml.value, 1000), vit: r.vit.getAttribute("aria-pressed") === "true", pee: Number(r.pee.dataset.count) || 0, poo: Number(r.poo.dataset.count) || 0, memo: r.memo.value.trim() };
   }
-  const isEmpty = (v) => v.min == null && v.ml == null && !cnt(v.pee) && !cnt(v.poo) && !v.memo;
-  const sameRow = (a, v) => a ? (a.min ?? null) === v.min && (a.ml ?? null) === v.ml && cnt(a.pee) === v.pee && cnt(a.poo) === v.poo && (a.memo || "") === v.memo : isEmpty(v);
+  const isEmpty = (v) => v.min == null && v.ml == null && !v.vit && !cnt(v.pee) && !cnt(v.poo) && !v.memo;
+  const sameRow = (a, v) => a ? (a.min ?? null) === v.min && (a.ml ?? null) === v.ml && !!a.vit === !!v.vit && cnt(a.pee) === v.pee && cnt(a.poo) === v.poo && (a.memo || "") === v.memo : isEmpty(v);
   function summarize(rows) {
-    let feeds = 0, ml = 0, pee = 0, poo = 0;
-    Object.values(rows).forEach((v) => { if (!v) return; if (v.ml) { feeds++; ml += v.ml; } pee += cnt(v.pee); poo += cnt(v.poo); });
-    return { feeds, ml, pee, poo };
+    let feeds = 0, ml = 0, pee = 0, poo = 0, vit = 0;
+    Object.values(rows).forEach((v) => { if (!v) return; if (v.ml) { feeds++; ml += v.ml; } pee += cnt(v.pee); poo += cnt(v.poo); if (v.vit) vit++; });
+    return { feeds, ml, pee, poo, vit };
   }
 
   /* ---------- saving: one request at a time per hour ---------- */
@@ -279,7 +282,7 @@
         if (pickMinHour !== r.h) r.m.value = v.min ?? "";
         if (pickHour !== r.h) r.ml.value = v.ml ?? "";
         if (act !== r.memo) { r.memo.value = v.memo || ""; grow(r.memo); }
-        setCount(r.pee, cnt(v.pee), r.h); setCount(r.poo, cnt(v.poo), r.h);
+        setVit(r.vit, !!v.vit); setCount(r.pee, cnt(v.pee), r.h); setCount(r.poo, cnt(v.poo), r.h);
       }
       r.el.classList.toggle("current", today && i === nowH);
     });
@@ -289,7 +292,7 @@
     const rows = {}; R.forEach((r) => { rows[r.h] = rowFromDom(r); r.el.classList.toggle("filled", !isEmpty(rows[r.h])); });
     const s = summarize(rows);
     $("sFeeds").textContent = s.feeds; $("sMl").textContent = s.ml; $("sPee").textContent = s.pee; $("sPoo").textContent = s.poo;
-    $("tFeeds").textContent = s.feeds + "회"; $("tMl").textContent = s.ml; $("tPee").textContent = s.pee; $("tPoo").textContent = s.poo;
+    $("tFeeds").textContent = s.feeds + "회"; $("tMl").textContent = s.ml; $("tVit").textContent = s.vit; $("tPee").textContent = s.pee; $("tPoo").textContent = s.poo;
     renderSince();
   }
   function dplus(key) {
@@ -722,7 +725,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261105075956";
+  const APP_VERSION = "20261106134047";
   async function checkUpdate() {
     if (busy()) return;
     try {

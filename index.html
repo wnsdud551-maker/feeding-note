@@ -33,6 +33,9 @@
   --poo-soft: #f2e7dc;
   --poo-line: #b9875a;
   --now: #fff6e0;
+  --vit: #2f8a4e;
+  --vit-soft: #e1f3e6;
+  --vit-line: #5bb37a;
   --font-display: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
 }
@@ -40,13 +43,13 @@
   :root:not([data-theme="light"]) {
     --bg: #11161c; --paper: #182029; --ink: #dfe6ee; --muted: #8696a7; --line: #26313d;
     --accent: #7ea4f0; --accent-soft: #1e2b42; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
-    --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; color-scheme: dark;
+    --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; --vit: #6fd08f; --vit-soft: #17311f; --vit-line: #3f9a5e; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #11161c; --paper: #182029; --ink: #dfe6ee; --muted: #8696a7; --line: #26313d;
   --accent: #7ea4f0; --accent-soft: #1e2b42; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
-  --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; color-scheme: dark;
+  --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; --vit: #6fd08f; --vit-soft: #17311f; --vit-line: #3f9a5e; color-scheme: dark;
 }
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; font-size: 14px; }
@@ -101,7 +104,7 @@ header.bar {
 }
 
 .sheet { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-.grid { display: grid; grid-template-columns: 42px 46px 60px 40px 40px minmax(0, 1fr); gap: 4px; align-items: center; padding: 5px 8px; }
+.grid { display: grid; grid-template-columns: 38px 42px 54px 30px 38px 38px minmax(0, 1fr); gap: 4px; align-items: center; padding: 5px 8px; }
 .head { font-size: .72rem; color: var(--muted); letter-spacing: .03em; border-bottom: 1px solid var(--line); padding-block: 8px; }
 .head div { text-align: center; } .head div:last-child { text-align: left; padding-left: 4px; }
 .row { border-bottom: 1px solid var(--line); min-height: 44px; }
@@ -121,11 +124,21 @@ header.bar {
 .row input::-webkit-outer-spin-button, .row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .row textarea { text-align: left; resize: none; overflow: hidden; line-height: 1.35; font-size: .88rem; display: block; }
 .chk {
-  width: 38px; height: 34px; justify-self: center; border-radius: 10px; border: 1.5px solid var(--line);
+  width: 36px; height: 34px; justify-self: center; border-radius: 10px; border: 1.5px solid var(--line);
   background: transparent; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; padding: 0;
   font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; touch-action: manipulation;
 }
 .chk.pee.on { background: var(--pee-soft); border-color: var(--pee-line); color: var(--pee); font-weight: 600; }
+.chk.vit { width: 30px; font-weight: 600; }
+@media (max-width: 380px) {
+  .grid { grid-template-columns: 32px 36px 46px 28px 34px 34px minmax(0, 1fr); gap: 3px; padding-inline: 6px; }
+  .chk { width: 32px; }
+  .chk.vit { width: 28px; }
+  .hour { font-size: .8rem; }
+  .row input { padding-inline: 2px; }
+  .head { font-size: .68rem; }
+}
+.chk.vit.on { background: var(--vit-soft); border-color: var(--vit-line); color: var(--vit); }
 .chk.poo.on { background: var(--poo-soft); border-color: var(--poo-line); color: var(--poo); font-weight: 600; }
 .total { font-weight: 600; font-variant-numeric: tabular-nums; border-top: 1.5px solid var(--ink); background: var(--bg); }
 .total div { text-align: center; font-size: .88rem; }
@@ -250,11 +263,11 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   <section id="logView">
     <div class="sheet" role="table" aria-label="시간별 기록">
       <div class="grid head" role="row">
-        <div>시간</div><div>분</div><div>분유ml</div><div>소변</div><div>대변</div><div>기타</div>
+        <div>시간</div><div>분</div><div>분유ml</div><div title="비타민">비타</div><div>소변</div><div>대변</div><div>기타</div>
       </div>
       <div id="rows"></div>
       <div class="grid total" role="row">
-        <div>Total</div><div id="tFeeds">0회</div><div id="tMl">0</div><div id="tPee">0</div><div id="tPoo">0</div><div></div>
+        <div>Total</div><div id="tFeeds">0회</div><div id="tMl">0</div><div id="tVit">0</div><div id="tPee">0</div><div id="tPoo">0</div><div></div>
       </div>
     </div>
     <p class="hint">소·대 버튼은 누를 때마다 횟수가 올라가요 (소 → 소2 → 소3 …). 5번 다음에 한 번 더 누르면 지워져요. 입력하면 바로 저장되니 그냥 꺼도 돼요.</p>
@@ -353,6 +366,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261105075956"></script>
+<script src="app.js?v=20261106134047"></script>
 </body>
 </html>
