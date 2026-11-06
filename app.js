@@ -314,6 +314,55 @@
       $("vitNow").hidden = true;
     }
   }
+  /* one encouraging line per day; both phones show the same one */
+  const QUOTES = [
+    "오늘 아린이가 먹은 한 방울 한 방울은 엄마 아빠의 사랑이에요.",
+    "완벽한 부모보다 곁에 있는 부모가 아이에겐 전부예요.",
+    "힘든 날도 지나가요. 아린이는 그 사이에도 자라고 있어요.",
+    "오늘 잘 못 한 것보다 잘한 것 하나를 떠올려 보세요.",
+    "서툴러도 괜찮아요. 아린이도 엄마 아빠도 같이 처음이에요.",
+    "잠깐 눈 붙이는 것도 육아예요. 쉬어도 괜찮아요.",
+    "아린이에게 세상은 엄마 아빠의 품에서 시작돼요.",
+    "오늘의 피곤함은 내일의 웃음으로 돌아올 거예요.",
+    "서로에게 \"수고했어\" 한마디 건네는 하루가 되길.",
+    "우는 것도 아린이가 말하는 방법이에요. 잘 듣고 있어요.",
+    "하루하루 쌓인 이 기록이 아린이의 첫 일기장이에요.",
+    "오늘도 아린이를 지켜낸 두 사람, 정말 대단해요.",
+    "조금 늦어도, 조금 달라도 괜찮아요. 아린이만의 속도가 있어요.",
+    "지친 마음도 아린이의 작은 손 한 번이면 녹아요.",
+    "엄마 아빠가 웃으면 아린이도 따라 웃어요.",
+    "모든 걸 잘하려 하지 않아도 돼요. 사랑하는 것만으로 충분해요.",
+    "새벽 수유를 함께 견디는 두 사람은 최고의 팀이에요.",
+    "오늘 하루도 무사히, 그거면 충분히 잘한 거예요.",
+    "아린이는 오늘도 엄마 아빠 덕분에 안전하고 따뜻했어요.",
+    "내 몸도 챙겨야 아린이도 챙길 수 있어요. 물 한 잔 마셔요.",
+    "지금 이 순간은 다시 오지 않아요. 작은 하품까지 예뻐요.",
+    "지금의 고단한 밤들이 언젠가 가장 그리운 밤이 될 거예요.",
+    "힘들다고 말해도 괜찮아요. 서로 기대며 가면 돼요.",
+    "아린이가 자라는 만큼 엄마 아빠도 함께 자라고 있어요.",
+    "오늘 먹은 분유 양보다 오늘 안아준 시간이 더 소중해요.",
+    "잘하고 있어요. 정말로요.",
+    "한 번의 미소를 위한 백 번의 토닥임, 그게 사랑이에요.",
+    "오늘 못 한 일은 내일 해도 돼요. 아린이는 기다려 줘요.",
+    "둘이라서 다행이에요. 오늘도 서로에게 고마운 하루.",
+    "아린이의 작은 숨소리가 오늘 하루의 가장 큰 선물이에요.",
+    "걱정은 반으로, 기쁨은 두 배로. 함께라서 가능해요.",
+    "오늘도 꼼꼼히 기록해 줘서 고마워요. 이 정성이 아린이를 지켜요.",
+    "엄마 아빠의 목소리는 아린이에게 가장 좋은 자장가예요.",
+    "지친 하루 끝에 서로 손 한 번 꼭 잡아 주세요.",
+    "처음 만난 날처럼, 오늘도 아린이는 기적이에요.",
+    "사랑받은 아기는 단단하게 자라요. 아린이는 이미 듬뿍 받고 있어요.",
+    "오늘 흘린 땀만큼 아린이 볼이 통통해지고 있어요.",
+    "잠 못 드는 밤에도 별은 떠 있어요. 곧 아침이 와요.",
+    "오늘의 엄마 아빠에게 큰 박수를 보내요. 짝짝짝!",
+    "아린이가 엄마 아빠를 골라서 와 준 것 같아요. 그만큼 잘 맞는 가족이에요.",
+  ];
+  function renderQuote() {
+    const d = new Date();
+    const dayNo = Math.floor((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(2026, 0, 1)) / 86400000);
+    const q = QUOTES[((dayNo % QUOTES.length) + QUOTES.length) % QUOTES.length];
+    if ($("quote").textContent !== q) $("quote").textContent = q;
+  }
   function dplus(key) {
     if (!S.birth) return 0;
     const n = Math.round((parseKey(key) - parseKey(S.birth)) / 86400000) + 1;
@@ -327,6 +376,7 @@
     $("next").disabled = isToday;
     const tn = dplus(keyOf(new Date()));
     $("brandSub").innerHTML = tn ? `오늘로 <b>D+${tn}</b> · 오늘도 무럭무럭` : "오늘도 무럭무럭";
+    renderQuote();
   }
   function lastFeed() {
     const pick = (rows, base) => {
@@ -556,7 +606,7 @@
   });
 
   setInterval(() => {
-    renderSince(); renderVitWarn();
+    renderSince(); renderVitWarn(); renderQuote();
     const today = keyOf(new Date()), nowH = new Date().getHours();
     R.forEach((r, i) => r.el.classList.toggle("current", S.date === today && i === nowH));
   }, 30000);
@@ -754,7 +804,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261106144203";
+  const APP_VERSION = "20261106150727";
   async function checkUpdate() {
     if (busy()) return;
     try {
