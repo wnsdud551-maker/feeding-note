@@ -124,10 +124,11 @@
       }, `${q.date} 메모`);
     }
     if (action === "saveSettings") {
-      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9) };
+      const iv = Math.round(Number(q.interval));
+      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 180 };
       await mutate("settings.json", () => ({}), (d) => {
-        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets)) return { changed: false };
-        d.birth = want.birth; d.presets = want.presets; return { changed: true };
+        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval) return { changed: false };
+        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; return { changed: true };
       }, "설정");
       settingsCache = want; settingsAt = Date.now();
       return {};
@@ -143,7 +144,7 @@
     throw { code: "server" };
   }
 
-  const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], loadToken: 0, online: true };
+  const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], interval: 180, loadToken: 0, online: true };
 
   /* ---------- local backup of unsent edits (survives closing the app) ---------- */
   const PKEY = "feednote-pending-v1";
@@ -394,14 +395,38 @@
     if (!f) { const y = new Date(base); y.setDate(y.getDate() - 1); f = pick(S.prevRows, y); }
     return f;
   }
+  const hm = (mins) => { const h = Math.floor(mins / 60), m = mins % 60; return h ? (m ? `${h}시간 ${m}분` : `${h}시간`) : `${m}분`; };
   function renderSince() {
     const el = $("since");
-    if (S.date !== keyOf(new Date())) { el.textContent = "지난 날짜를 보고 있어요"; return; }
-    const f = lastFeed();
-    if (!f) { el.textContent = "수유 기록을 남기면 경과 시간이 보여요"; return; }
-    const mins = Math.max(0, Math.floor((Date.now() - f.t) / 60000));
-    const h = Math.floor(mins / 60), m = mins % 60;
-    el.innerHTML = `마지막 수유 <strong>${pad(f.t.getHours())}:${pad(f.t.getMinutes())}</strong> · ${f.ml}ml · <strong>${h ? `${h}시간 ${m}분` : `${m}분`} 전</strong>`;
+    const today = keyOf(new Date());
+    const f = S.date === today ? lastFeed() : null;
+    renderNextRow(f);
+    if (S.date !== today) { el.textContent = "지난 날짜를 보고 있어요"; return; }
+    if (!f) { el.textContent = "수유 기록을 남기면 다음 수유 시간을 알려드려요"; return; }
+    const ago = Math.max(0, Math.floor((Date.now() - f.t) / 60000));
+    const next = new Date(f.t.getTime() + S.interval * 60000);
+    const left = Math.round((next - Date.now()) / 60000);
+    const nextLabel = `${keyOf(next) !== today ? "내일 " : ""}${pad(next.getHours())}:${pad(next.getMinutes())}`;
+    let line2;
+    if (left > 0) line2 = `다음 수유 <strong class="nx">${nextLabel}</strong> · ${hm(left)} 남음`;
+    else if (left > -5) line2 = `<span class="due">지금 수유할 시간이에요 (${nextLabel})</span>`;
+    else line2 = `<span class="due">예정 ${nextLabel}보다 ${hm(-left)} 지났어요</span>`;
+    el.innerHTML = `마지막 수유 <strong>${pad(f.t.getHours())}:${pad(f.t.getMinutes())}</strong> · ${f.ml}ml · ${ago < 1 ? "방금" : hm(ago) + " 전"}<br>${line2}`;
+  }
+  // faintly pre-fill the row where the next feed is due (last feed + interval), with the last amount
+  function renderNextRow(f) {
+    let nh = null, nm = null, nml = null;
+    if (f) {
+      const next = new Date(f.t.getTime() + S.interval * 60000);
+      if (keyOf(next) === S.date) { nh = pad(next.getHours()); nm = next.getMinutes(); nml = f.ml; }
+    }
+    R.forEach((r) => {
+      const on = r.h === nh && r.m.value === "" && r.ml.value === "";
+      r.el.classList.toggle("next", on);
+      r.m.placeholder = on ? pad(nm) : "분";
+      r.ml.placeholder = on ? String(nml) : "ml";
+      r.m.setAttribute("aria-label", `${r.h}시 분${on ? `, 다음 수유 예정 ${pad(nm)}분` : ""}, 누르면 선택`);
+    });
   }
   function setStatus(t, warn) { const s = $("status"); s.textContent = t; s.classList.toggle("warn", !!warn); }
 
@@ -432,6 +457,8 @@
     if (typeof st.birth === "string") { S.birth = st.birth; if (document.activeElement !== $("birth")) $("birth").value = S.birth; }
     const pr = Array.isArray(st.presets) ? parsePresets(st.presets.join(",")) : [];
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
+    const iv = Number(st.interval);
+    if (iv >= 60 && iv <= 360 && iv !== S.interval) { S.interval = iv; $("interval").value = String(iv); renderSince(); }
   }
   function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null || pickMinHour != null; }
   setInterval(() => {
@@ -461,8 +488,9 @@
   $("dayMemo").addEventListener("blur", () => { clearTimeout(memoTimer); memoTimer = null; saveMemo(); });
 
   async function saveSettings(msg) {
-    try { await api("saveSettings", { birth: S.birth, presets: S.presets }); setStatus(msg); } catch (e) { handleErr(e); }
+    try { await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval }); setStatus(msg); } catch (e) { handleErr(e); }
   }
+  $("interval").addEventListener("change", () => { S.interval = Number($("interval").value) || 180; renderSince(); saveSettings("수유 간격을 저장했어요"); });
   $("birth").addEventListener("change", () => { S.birth = $("birth").value; renderTitle(); saveSettings("생일을 저장했어요"); });
   const parsePresets = (t) => [...new Set(String(t).split(/[^0-9]+/).map(Number).filter((n) => n > 0 && n <= 1000))].slice(0, 9);
   $("presets").addEventListener("change", () => {
@@ -550,7 +578,9 @@
     let html = "";
     for (let m = 0; m < 60; m += 5) html += `<button data-v="${m}">${pad(m)}<small>분</small></button>`;
     $("minChips").innerHTML = html;
-    markChip($("minChips"), cur === "" ? "" : String(Number(cur)));
+    // on the faint "next feed" row, the predicted minute is pre-selected
+    const guess = cur === "" && R[Number(hh)].el.classList.contains("next") ? String(Math.min(55, Math.round(Number(R[Number(hh)].m.placeholder) / 5) * 5)) : "";
+    markChip($("minChips"), cur === "" ? guess : String(Number(cur)));
     const now = new Date();
     $("minNow").hidden = !(S.date === keyOf(now) && Number(hh) === now.getHours());
     $("minNow").textContent = `지금 (${pad(nowMin5())}분)`;
@@ -808,7 +838,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261106151630";
+  const APP_VERSION = "20261106154839";
   async function checkUpdate() {
     if (busy()) return;
     try {

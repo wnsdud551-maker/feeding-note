@@ -222,6 +222,11 @@ header.bar {
 .vitwarn button { flex: none; border: 0; background: var(--vit); color: var(--paper); font: inherit; font-weight: 700; font-size: .82rem; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) { .vitwarn:not(.past) .vdot { animation: vpulse 1.6s ease-in-out infinite; } }
 @keyframes vpulse { 50% { transform: scale(1.15); } }
+.row.next { background: var(--accent-soft); }
+.row.next .hour { color: var(--accent); }
+.row.next input::placeholder { color: var(--accent); opacity: .5; }
+.since strong.nx { color: var(--accent); }
+.since .due { color: var(--warn); font-weight: 600; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -339,6 +344,14 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
       <span>생일을 넣으면 D+ 날짜가 표시돼요 (태어난 날 = D+1)</span>
     </div>
     <div class="settings">
+      <label for="interval">수유 간격</label>
+      <select id="interval" style="font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 8px">
+        <option value="120">2시간</option><option value="150">2시간 30분</option><option value="180" selected>3시간</option>
+        <option value="210">3시간 30분</option><option value="240">4시간</option>
+      </select>
+      <span>마지막 수유에서 이만큼 뒤를 다음 수유 시간으로 표에 연하게 보여줘요.</span>
+    </div>
+    <div class="settings">
       <label for="presets">자주 먹는 분유량</label>
       <input type="text" id="presets" inputmode="numeric" value="120, 140, 160" style="width:11em">
       <span>쉼표로 구분해서 바꿀 수 있어요. 아기가 크면 늘려 주세요.</span>
@@ -422,6 +435,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261106151630"></script>
+<script src="app.js?v=20261106154839"></script>
 </body>
 </html>
