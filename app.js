@@ -754,7 +754,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261106135035";
+  const APP_VERSION = "20261106144203";
   async function checkUpdate() {
     if (busy()) return;
     try {

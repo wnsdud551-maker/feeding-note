@@ -141,7 +141,6 @@ header.bar {
 .chk.pee.on { background: var(--pee-soft); border-color: var(--pee-line); color: var(--pee); font-weight: 600; }
 .chk.vit { width: 30px; font-weight: 600; }
 @media (max-width: 380px) {
-  .sheet .grid { background-position: 39px 0; }
   .grid { grid-template-columns: 32px 36px 46px 28px 34px 34px minmax(0, 1fr); gap: 3px; padding-inline: 6px; }
   .chk { width: 32px; }
   .chk.vit { width: 28px; }
@@ -202,15 +201,13 @@ header.bar {
 .cover svg { position: absolute; top: 14px; width: 22px; height: 22px; }
 .cover svg.l { left: 8%; transform: rotate(-12deg); } .cover svg.r { right: 8%; top: 30px; transform: rotate(14deg); width: 16px; height: 16px; }
 .cover svg path { fill: var(--margin); }
-/* notebook paper: ring binding on top, ruled rows, pink margin line after the hour */
+/* notebook paper: ring binding on top, ruled rows */
 .sheet { position: relative; padding-top: 18px; box-shadow: 0 1px 0 var(--line), 0 6px 18px -12px rgba(80, 40, 60, .25); }
 .sheet::before {
   content: ""; position: absolute; left: 14px; right: 14px; top: 5px; height: 9px;
   background: radial-gradient(circle at 50% 50%, var(--bg) 0 3.5px, var(--ring) 3.6px 4.5px, transparent 4.6px) 0 0 / 22px 9px repeat-x;
 }
 .row, .head, .total { border-bottom-color: var(--rule); }
-.sheet .grid { background-image: linear-gradient(var(--margin), var(--margin)); background-size: 1.5px 100%; background-repeat: no-repeat; background-position: 48px 0; }
-.hour { font-family: var(--font-hand); font-size: 1.05rem; font-weight: 700; }
 .vitwarn {
   display: flex; align-items: center; gap: 10px; background: var(--warn-soft); color: var(--warn);
   border: 1.5px dashed var(--warn); border-radius: 12px; padding: 8px 10px 8px 12px; font-size: .88rem; font-weight: 600;
@@ -418,6 +415,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261106135035"></script>
+<script src="app.js?v=20261106144203"></script>
 </body>
 </html>
