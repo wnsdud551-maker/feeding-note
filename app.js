@@ -294,6 +294,25 @@
     $("sFeeds").textContent = s.feeds; $("sMl").textContent = s.ml; $("sPee").textContent = s.pee; $("sPoo").textContent = s.poo;
     $("tFeeds").textContent = s.feeds + "회"; $("tMl").textContent = s.ml; $("tVit").textContent = s.vit; $("tPee").textContent = s.pee; $("tPoo").textContent = s.poo;
     renderSince();
+    renderVitWarn();
+  }
+  // vitamin is one drop every day: warn after 18:00 when today has no V yet
+  function renderVitWarn() {
+    const el = $("vitWarn");
+    const today = keyOf(new Date());
+    const any = R.some((r) => r.vit.getAttribute("aria-pressed") === "true");
+    const loaded = S.loadedDate === S.date;
+    if (any || !loaded || S.date > today) { el.hidden = true; return; }
+    if (S.date === today) {
+      const show = new Date().getHours() >= 18;
+      el.hidden = !show; el.classList.remove("past");
+      $("vitText").textContent = "오후 6시가 지났는데 오늘 비타민을 아직 안 먹였어요";
+      $("vitNow").hidden = false;
+    } else {
+      el.hidden = false; el.classList.add("past");
+      $("vitText").textContent = "이 날은 비타민 체크가 없어요";
+      $("vitNow").hidden = true;
+    }
   }
   function dplus(key) {
     if (!S.birth) return 0;
@@ -306,6 +325,8 @@
     const n = dplus(S.date);
     $("title").innerHTML = `${d.getMonth() + 1}월 ${d.getDate()}일${n ? ` <span class="dplus">D+${n}</span>` : ""}<small>${d.getFullYear()}년 · ${WD[d.getDay()]}요일${isToday ? " · 오늘" : ""}</small>`;
     $("next").disabled = isToday;
+    const tn = dplus(keyOf(new Date()));
+    $("brandSub").innerHTML = tn ? `오늘로 <b>D+${tn}</b> · 오늘도 무럭무럭` : "오늘도 무럭무럭";
   }
   function lastFeed() {
     const pick = (rows, base) => {
@@ -342,7 +363,7 @@
     try {
       const j = await api("day", { date, withPrev: date === keyOf(new Date()) });
       if (token !== S.loadToken || date !== S.date) return;
-      S.rows = j.rows || {}; S.prevRows = j.prevRows || {};
+      S.rows = j.rows || {}; S.prevRows = j.prevRows || {}; S.loadedDate = date;
       S.dayMemo = j.memo || "";
       const pm = loadPending()[`${date}/memo`];
       if (document.activeElement !== $("dayMemo") && !memoTimer && !pm) $("dayMemo").value = S.dayMemo;
@@ -526,8 +547,16 @@
     setTimeout(() => openPicker(r.h), 250);
   });
 
+  $("vitNow").addEventListener("click", () => {
+    const now = new Date();
+    if (S.date !== keyOf(now)) return;
+    const r = R[now.getHours()];
+    setVit(r.vit, true); scheduleSave(r.h, 0);
+    r.el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  });
+
   setInterval(() => {
-    renderSince();
+    renderSince(); renderVitWarn();
     const today = keyOf(new Date()), nowH = new Date().getHours();
     R.forEach((r, i) => r.el.classList.toggle("current", S.date === today && i === nowH));
   }, 30000);
@@ -725,7 +754,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261106134047";
+  const APP_VERSION = "20261106135035";
   async function checkUpdate() {
     if (busy()) return;
     try {

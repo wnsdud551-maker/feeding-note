@@ -3,53 +3,62 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>우리 아기 수유노트</title>
-<meta name="theme-color" content="#f3f6f8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#11161c" media="(prefers-color-scheme: dark)">
+<title>아린이의 수유노트</title>
+<meta name="theme-color" content="#f7f0f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17141c" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="수유노트">
+<meta name="apple-mobile-web-app-title" content="아린이 수유노트">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="robots" content="noindex">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <style>
 /* Layout: one hourly ledger like the paper sheet — sticky date bar + 24 rows, plus a stats tab; tuned for one-handed night use */
 :root {
-  --bg: #f3f6f8;
-  --paper: #ffffff;
-  --ink: #1f2d3d;
-  --muted: #6b7a89;
-  --line: #dde4ea;
-  --accent: #3b6fd8;
-  --accent-soft: #e5edfc;
-  --pee: #b88a00;
+  --bg: #f7f0f3;
+  --paper: #fffdfb;
+  --ink: #3b3340;
+  --muted: #8a7f8c;
+  --line: #ede3ea;
+  --rule: #e4e8f4;
+  --margin: #f3bccb;
+  --ring: #d9ccd6;
+  --accent: #d2607f;
+  --accent-soft: #fbe5ec;
+  --pee: #a87b00;
   --pee-soft: #fdf3cf;
   --pee-line: #e4b51a;
   --poo: #8a5a2e;
   --poo-soft: #f2e7dc;
   --poo-line: #b9875a;
-  --now: #fff6e0;
+  --now: #fff4dc;
   --vit: #2f8a4e;
   --vit-soft: #e1f3e6;
   --vit-line: #5bb37a;
+  --warn: #c2570c;
+  --warn-soft: #fff0e2;
+  --tape: rgba(244, 182, 199, .55);
+  --font-hand: "Gaegu", "Gowun Dodum", "Apple SD Gothic Neo", sans-serif;
   --font-display: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #11161c; --paper: #182029; --ink: #dfe6ee; --muted: #8696a7; --line: #26313d;
-    --accent: #7ea4f0; --accent-soft: #1e2b42; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
-    --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; --vit: #6fd08f; --vit-soft: #17311f; --vit-line: #3f9a5e; color-scheme: dark;
+    --bg: #17141c; --paper: #211c27; --ink: #ece4ef; --muted: #9d92a3; --line: #332b3a; --rule: #2b2a3b; --margin: #6e3c4f; --ring: #3d3445;
+    --accent: #f093b1; --accent-soft: #3b2231; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
+    --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #2b2619; --vit: #6fd08f; --vit-soft: #17311f; --vit-line: #3f9a5e;
+    --warn: #ffad66; --warn-soft: #3a2615; --tape: rgba(240, 147, 177, .28); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #11161c; --paper: #182029; --ink: #dfe6ee; --muted: #8696a7; --line: #26313d;
-  --accent: #7ea4f0; --accent-soft: #1e2b42; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
-  --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #252318; --vit: #6fd08f; --vit-soft: #17311f; --vit-line: #3f9a5e; color-scheme: dark;
+  --bg: #17141c; --paper: #211c27; --ink: #ece4ef; --muted: #9d92a3; --line: #332b3a; --rule: #2b2a3b; --margin: #6e3c4f; --ring: #3d3445;
+  --accent: #f093b1; --accent-soft: #3b2231; --pee: #e9c34a; --pee-soft: #3a3214; --pee-line: #c9a532;
+  --poo: #d3a576; --poo-soft: #362a1f; --poo-line: #a97f57; --now: #2b2619; --vit: #6fd08f; --vit-soft: #17311f; --vit-line: #3f9a5e;
+  --warn: #ffad66; --warn-soft: #3a2615; --tape: rgba(240, 147, 177, .28); color-scheme: dark;
 }
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; font-size: 14px; }
@@ -77,6 +86,7 @@ header.bar {
   padding: 7px 0; border-radius: 9px; cursor: pointer;
 }
 .tabs button[aria-selected=true], .seg button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent); }
+.tabs button { font-family: var(--font-hand); font-size: 1.12rem; font-weight: 700; padding: 4px 0; }
 .daterow { display: flex; align-items: center; gap: 8px; }
 .daterow h1, .daterow h2 {
   flex: 1; min-width: 0; margin: 0; text-align: center; font-family: var(--font-display);
@@ -131,6 +141,7 @@ header.bar {
 .chk.pee.on { background: var(--pee-soft); border-color: var(--pee-line); color: var(--pee); font-weight: 600; }
 .chk.vit { width: 30px; font-weight: 600; }
 @media (max-width: 380px) {
+  .sheet .grid { background-position: 39px 0; }
   .grid { grid-template-columns: 32px 36px 46px 28px 34px 34px minmax(0, 1fr); gap: 3px; padding-inline: 6px; }
   .chk { width: 32px; }
   .chk.vit { width: 28px; }
@@ -181,6 +192,36 @@ header.bar {
 .setup textarea { width: 100%; min-height: 90px; font: inherit; font-size: .85rem; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 .setup .err { color: var(--poo); font-size: .85rem; min-height: 1.2em; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); z-index: 30; background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 999px; font-size: .88rem; white-space: nowrap; }
+/* cover: name on a strip of tape, like a hand-labelled notebook */
+.cover { position: relative; isolation: isolate; text-align: center; padding-block: 22px 4px; }
+.brand { position: relative; display: inline-block; margin: 0; font-family: var(--font-hand); font-weight: 700; font-size: 2.1rem; line-height: 1.1; letter-spacing: -.01em; color: var(--ink); text-wrap: balance; }
+.brand::before { content: ""; position: absolute; z-index: -1; left: -14px; right: -14px; top: 52%; height: 46%; background: var(--tape); transform: rotate(-1.5deg); border-radius: 3px; }
+.brand em { font-style: normal; color: var(--accent); }
+.brand-sub { margin: 6px 0 0; font-family: var(--font-hand); font-size: 1.15rem; color: var(--muted); }
+.brand-sub b { color: var(--accent); font-weight: 700; }
+.cover svg { position: absolute; top: 14px; width: 22px; height: 22px; }
+.cover svg.l { left: 8%; transform: rotate(-12deg); } .cover svg.r { right: 8%; top: 30px; transform: rotate(14deg); width: 16px; height: 16px; }
+.cover svg path { fill: var(--margin); }
+/* notebook paper: ring binding on top, ruled rows, pink margin line after the hour */
+.sheet { position: relative; padding-top: 18px; box-shadow: 0 1px 0 var(--line), 0 6px 18px -12px rgba(80, 40, 60, .25); }
+.sheet::before {
+  content: ""; position: absolute; left: 14px; right: 14px; top: 5px; height: 9px;
+  background: radial-gradient(circle at 50% 50%, var(--bg) 0 3.5px, var(--ring) 3.6px 4.5px, transparent 4.6px) 0 0 / 22px 9px repeat-x;
+}
+.row, .head, .total { border-bottom-color: var(--rule); }
+.sheet .grid { background-image: linear-gradient(var(--margin), var(--margin)); background-size: 1.5px 100%; background-repeat: no-repeat; background-position: 48px 0; }
+.hour { font-family: var(--font-hand); font-size: 1.05rem; font-weight: 700; }
+.vitwarn {
+  display: flex; align-items: center; gap: 10px; background: var(--warn-soft); color: var(--warn);
+  border: 1.5px dashed var(--warn); border-radius: 12px; padding: 8px 10px 8px 12px; font-size: .88rem; font-weight: 600;
+}
+.vitwarn.past { border-style: solid; border-color: var(--line); background: var(--paper); color: var(--muted); font-weight: 500; }
+.vitwarn .vdot { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--warn); color: var(--paper); font-weight: 700; font-size: .85rem; }
+.vitwarn.past .vdot { background: var(--line); color: var(--muted); }
+.vitwarn span.t { flex: 1; min-width: 0; line-height: 1.35; }
+.vitwarn button { flex: none; border: 0; background: var(--vit); color: var(--paper); font: inherit; font-weight: 700; font-size: .82rem; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { .vitwarn:not(.past) .vdot { animation: vpulse 1.6s ease-in-out infinite; } }
+@keyframes vpulse { 50% { transform: scale(1.15); } }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -223,6 +264,12 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
 <body>
 <div id="app">
 <div class="wrap">
+  <div class="cover">
+    <svg class="l" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 6.3 6.8.6-5.2 4.5 1.6 6.6L12 16.6 6.2 20l1.6-6.6L2.6 8.9l6.8-.6z"/></svg>
+    <svg class="r" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.7 1.3 5.2 3.1 1.5-1.8 3-3.1 5.2-3.1 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>
+    <h1 class="brand">아린이의 <em>수유노트</em></h1>
+    <p class="brand-sub" id="brandSub">오늘도 무럭무럭</p>
+  </div>
   <header class="bar">
     <div class="tabs" role="tablist">
       <button role="tab" id="tabLog" aria-selected="true">기록</button>
@@ -232,7 +279,7 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
     <div id="logHead" style="display:grid;gap:10px">
       <div class="daterow">
         <button class="iconbtn" id="prev" aria-label="이전 날">‹</button>
-        <h1 id="title">수유노트<small>불러오는 중</small></h1>
+        <h2 id="title">불러오는 중</h2>
         <button class="iconbtn" id="next" aria-label="다음 날">›</button>
       </div>
       <div class="summary">
@@ -240,6 +287,11 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
         <div class="stat"><b id="sMl">0</b><span>분유 ml</span></div>
         <div class="stat pee"><b id="sPee">0</b><span>소변</span></div>
         <div class="stat poo"><b id="sPoo">0</b><span>대변</span></div>
+      </div>
+      <div class="vitwarn" id="vitWarn" hidden>
+        <span class="vdot" aria-hidden="true">V</span>
+        <span class="t" id="vitText">오후 6시가 지났는데 오늘 비타민을 아직 안 먹였어요</span>
+        <button id="vitNow" type="button">지금 체크</button>
       </div>
       <div class="since">
         <span id="since">수유 기록을 남기면 경과 시간이 보여요</span>
@@ -366,6 +418,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261106134047"></script>
+<script src="app.js?v=20261106135035"></script>
 </body>
 </html>
