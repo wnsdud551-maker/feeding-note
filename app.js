@@ -674,7 +674,9 @@
   /* ---------- 소독: when were the formula kettle, bottle washer … sterilised ---------- */
   // one file, clean.json = { items: [...], log: [{ id, item, at: "YYYY-MM-DDTHH:MM", memo }] }
   // edits queue locally first (survive closing the app), then merge into the file
-  const CL = { data: null, items: ["분유포트", "젖병 세척기"], pick: null, armed: null, flushing: false };
+  const CL = { data: null, items: ["분유포트", "젖병 세척기"], pick: null, armed: null, flushing: false, month: null, sel: null };
+  // one fixed colour per item, by its position in the item list
+  const CCOL = ["#3b82c4", "#2f9e6b", "#e07b24", "#8a63d2", "#d2607f", "#1f9fa8", "#b38a1a", "#7a8794", "#c2453b", "#5a6fd6", "#6a9a2a", "#a0522d"];
   const COPS = "feednote-clean-ops-v1";
   const loadOps = () => ls.get(COPS, []) || [];
   const saveOps = (o) => ls.set(COPS, o);
@@ -714,8 +716,8 @@
   const localStamp = (d) => `${keyOf(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   function openClean() {
     const now = new Date();
-    $("cleanDate").value = keyOf(now);
-    $("cleanDate").max = keyOf(now);
+    CL.sel = keyOf(now);
+    CL.month = new Date(now.getFullYear(), now.getMonth(), 1);
     $("cleanTime").value = `${pad(now.getHours())}:${pad(Math.floor(now.getMinutes() / 5) * 5)}`;
     renderClean();
     flushClean().then(() => loadClean());
@@ -734,6 +736,7 @@
     return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})${k === today ? " · 오늘" : k === keyOf(y) ? " · 어제" : ""}`; };
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   function renderClean() {
+    if (!CL.sel) CL.sel = keyOf(new Date());
     const v = cleanView();
     const items = v.items;
     if (!CL.pick || !items.includes(CL.pick)) CL.pick = items[0];
@@ -745,27 +748,56 @@
     }).join("");
     $("cleanPick").innerHTML = items.map((it) => `<button type="button" role="radio" aria-checked="${it === CL.pick}" data-pick="${esc(it)}">${esc(it)}</button>`).join("");
     if (document.activeElement !== $("cleanItemsEdit")) $("cleanItemsEdit").value = items.join(", ");
-    // log grouped by date, newest first
-    const groups = []; let cur = null;
-    v.log.slice(0, 150).forEach((e) => { const k = e.at.slice(0, 10); if (!cur || cur.k !== k) { cur = { k, list: [] }; groups.push(cur); } cur.list.push(e); });
-    $("cleanLog").innerHTML = groups.length ? groups.map((g) => `<div class="cday"><h5>${dayLabel(g.k)}</h5>${g.list.map((e) => `
-      <div class="centry"><span class="t">${e.at.slice(11)}</span><span class="w">${esc(e.item)}${e.memo ? `<small>${esc(e.memo)}</small>` : ""}</span>
-      <button type="button" data-del="${esc(e.id)}" class="${CL.armed === e.id ? "arm" : ""}" aria-label="${esc(e.item)} 기록 지우기">${CL.armed === e.id ? "지우기" : "✕"}</button></div>`).join("")}</div>`).join("")
-      : `<p class="empty-note">아직 소독 기록이 없어요. 위에서 [지금 소독했어요]를 눌러 보세요.</p>`;
+    renderCal(v);
+    // the selected day's entries
+    const list = v.log.filter((e) => e.at.slice(0, 10) === CL.sel).sort((x, y) => (x.at < y.at ? -1 : 1));
+    $("dayTitle").textContent = dayLabel(CL.sel);
+    $("cleanLog").innerHTML = list.length ? list.map((e) => `
+      <div class="centry"><span class="dot" style="background:${CCOL[Math.max(0, items.indexOf(e.item)) % CCOL.length]}"></span><span class="t">${e.at.slice(11)}</span><span class="w">${esc(e.item)}${e.memo ? `<small>${esc(e.memo)}</small>` : ""}</span>
+      <button type="button" data-del="${esc(e.id)}" class="${CL.armed === e.id ? "arm" : ""}" aria-label="${esc(e.item)} 기록 지우기">${CL.armed === e.id ? "지우기" : "✕"}</button></div>`).join("")
+      : `<p class="empty-note" style="padding:10px 0 14px">이 날은 소독 기록이 없어요</p>`;
+    $("cleanAdd").textContent = CL.sel === keyOf(new Date()) ? "오늘 기록하기" : `${Number(CL.sel.slice(5, 7))}/${Number(CL.sel.slice(8))}에 기록하기`;
   }
+  function renderCal(v) {
+    if (!CL.month) { const n = new Date(); CL.month = new Date(n.getFullYear(), n.getMonth(), 1); }
+    const y = CL.month.getFullYear(), m = CL.month.getMonth();
+    const today = keyOf(new Date());
+    $("calTitle").textContent = `${y}년 ${m + 1}월`;
+    $("calNext").disabled = keyOf(new Date(y, m + 1, 1)) > today;
+    $("calLegend").innerHTML = v.items.map((it, i) => `<span><i class="dot" style="background:${CCOL[i % CCOL.length]}"></i>${esc(it)}</span>`).join("");
+    const byDay = {};
+    v.log.forEach((e) => { const k = e.at.slice(0, 10); if (k.slice(0, 7) !== `${y}-${pad(m + 1)}`) return; (byDay[k] = byDay[k] || new Set()).add(e.item); });
+    let html = WD.map((w, i) => `<div class="wd${i === 0 ? " sun" : ""}">${w}</div>`).join("");
+    const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+    for (let i = 0; i < first; i++) html += `<div class="blank"></div>`;
+    for (let d = 1; d <= days; d++) {
+      const k = `${y}-${pad(m + 1)}-${pad(d)}`;
+      const done = byDay[k] ? v.items.map((it, i) => (byDay[k].has(it) ? i : -1)).filter((i) => i >= 0) : [];
+      const extra = byDay[k] ? [...byDay[k]].filter((it) => !v.items.includes(it)).length : 0;
+      const names = byDay[k] ? [...byDay[k]].join(", ") : "기록 없음";
+      const cls = ["day", new Date(y, m, d).getDay() === 0 ? "sun" : "", k === today ? "today" : "", k === CL.sel ? "sel" : "", k > today ? "future" : ""].filter(Boolean).join(" ");
+      html += `<button type="button" class="${cls}" data-day="${k}" aria-label="${m + 1}월 ${d}일: ${esc(names)}"${k > today ? " disabled" : ""}><span>${d}</span><span class="dots">${done.map((i) => `<i class="dot" style="background:${CCOL[i % CCOL.length]}"></i>`).join("")}${extra ? `<i class="dot" style="background:var(--muted)"></i>` : ""}</span></button>`;
+    }
+    $("cal").innerHTML = html;
+  }
+  $("cal").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-day]"); if (!b || b.disabled) return; CL.sel = b.dataset.day; CL.armed = null; renderClean(); });
+  $("calPrev").addEventListener("click", () => { CL.month = new Date(CL.month.getFullYear(), CL.month.getMonth() - 1, 1); renderClean(); });
+  $("calNext").addEventListener("click", () => { const n = new Date(CL.month.getFullYear(), CL.month.getMonth() + 1, 1); if (keyOf(n) <= keyOf(new Date())) { CL.month = n; renderClean(); } });
   function addClean(item, at, memo) {
     const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), item, at, memo: memo || "" };
     queueOp({ op: "add", e });
   }
   $("cleanItems").addEventListener("click", (ev) => {
     const b = ev.target.closest("button[data-now]"); if (!b) return;
-    addClean(b.dataset.now, localStamp(new Date()), "");
+    const now = new Date();
+    CL.sel = keyOf(now); CL.month = new Date(now.getFullYear(), now.getMonth(), 1);
+    addClean(b.dataset.now, localStamp(now), "");
     toast(`${b.dataset.now} 소독 기록했어요`);
   });
   $("cleanPick").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-pick]"); if (b) { CL.pick = b.dataset.pick; renderClean(); } });
   $("cleanForm").addEventListener("submit", (ev) => {
     ev.preventDefault();
-    const d = $("cleanDate").value, t = $("cleanTime").value;
+    const d = CL.sel || keyOf(new Date()), t = $("cleanTime").value;
     if (!validDate(d) || !/^\d{2}:\d{2}$/.test(t) || !CL.pick) { toast("날짜와 시간을 확인해 주세요"); return; }
     addClean(CL.pick, `${d}T${t}`, $("cleanMemo").value.trim().slice(0, 200));
     $("cleanMemo").value = "";
@@ -957,7 +989,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261108075223";
+  const APP_VERSION = "20261108121050";
   async function checkUpdate() {
     if (busy()) return;
     try {

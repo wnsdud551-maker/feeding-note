@@ -227,6 +227,26 @@ header.bar {
 .row.next input::placeholder { color: var(--accent); opacity: .5; }
 .since strong.nx { color: var(--accent); }
 .since .due { color: var(--warn); font-weight: 600; }
+.cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cal-head h3 { flex: 1; text-align: center; margin: 0; }
+.cal-head .iconbtn { width: 36px; height: 36px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; font-size: .78rem; color: var(--muted); margin-bottom: 8px; }
+.cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.cal .wd { text-align: center; font-size: .72rem; color: var(--muted); padding: 2px 0 4px; }
+.cal .wd.sun { color: var(--accent); }
+.cal button.day {
+  border: 1.5px solid transparent; background: var(--bg); border-radius: 10px; min-height: 48px; padding: 4px 2px 5px; cursor: pointer;
+  display: grid; grid-template-rows: auto 1fr; justify-items: center; gap: 3px; font: inherit; color: var(--ink); font-size: .82rem; font-variant-numeric: tabular-nums;
+}
+.cal button.day.sun { color: var(--accent); }
+.cal button.day.today { background: var(--accent-soft); font-weight: 700; }
+.cal button.day.sel { border-color: var(--accent); }
+.cal button.day.future { opacity: .35; cursor: default; }
+.cal button.day .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 34px; align-content: start; }
+.cal .blank { min-height: 48px; }
+.cal .dot { width: 9px; height: 9px; }
 .cleanitems { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .citem { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
 .citem h4 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; }
@@ -412,23 +432,27 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
     <div class="cleanitems" id="cleanItems"></div>
 
     <div class="card">
-      <h3>소독 기록 남기기</h3>
-      <p class="sub">지난 시간도 날짜와 시간을 바꿔서 적을 수 있어요</p>
-      <form id="cleanForm" class="cleanform">
-        <div class="cchips" id="cleanPick" role="radiogroup" aria-label="소독한 물건"></div>
-        <div class="crow">
-          <label>날짜<input type="date" id="cleanDate"></label>
-          <label>시간<input type="time" id="cleanTime" step="300"></label>
-        </div>
-        <input id="cleanMemo" maxlength="200" placeholder="메모 (예: 구연산 세척, 필터 교체)" autocomplete="off">
-        <button class="nowbtn" type="submit" id="cleanAdd">기록하기</button>
-      </form>
+      <div class="cal-head">
+        <button class="iconbtn" id="calPrev" type="button" aria-label="이전 달">‹</button>
+        <h3 id="calTitle">11월</h3>
+        <button class="iconbtn" id="calNext" type="button" aria-label="다음 달">›</button>
+      </div>
+      <div class="cal-legend" id="calLegend"></div>
+      <div class="cal" id="cal" role="grid" aria-label="소독 달력"></div>
     </div>
 
     <div class="card">
-      <h3>날짜별 소독 기록</h3>
-      <p class="sub">기록을 잘못 넣었으면 오른쪽 ✕를 두 번 눌러 지울 수 있어요</p>
+      <h3 id="dayTitle">오늘</h3>
+      <p class="sub">달력에서 날짜를 누르면 그날 기록을 보고 추가할 수 있어요</p>
       <div id="cleanLog"></div>
+      <form id="cleanForm" class="cleanform">
+        <div class="cchips" id="cleanPick" role="radiogroup" aria-label="소독한 물건"></div>
+        <div class="crow">
+          <label>시간<input type="time" id="cleanTime" step="300"></label>
+          <label>메모<input id="cleanMemo" maxlength="200" placeholder="예: 구연산 세척" autocomplete="off"></label>
+        </div>
+        <button class="nowbtn" type="submit" id="cleanAdd">이 날짜에 기록하기</button>
+      </form>
     </div>
 
     <div class="settings">
@@ -489,6 +513,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261108075223"></script>
+<script src="app.js?v=20261108121050"></script>
 </body>
 </html>
