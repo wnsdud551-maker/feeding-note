@@ -464,7 +464,8 @@
   setInterval(() => {
     if (document.hidden || !CONN || busy()) return;
     if (Object.keys(loadPending()).length) replayPending();
-    else if ($("statsView").hidden) loadDay(true);
+    else if (currentTab() === "log") loadDay(true);
+    else if (currentTab() === "clean") { if (loadOps().length) flushClean(); else loadClean(true); }
   }, 20000);
 
   /* ---------- day memo & settings ---------- */
@@ -521,7 +522,7 @@
   }
   window.addEventListener("popstate", () => {
     if (openSheetId) { hideSheet(); return; }
-    if (!$("statsView").hidden) { showTab(false, true); return; }
+    if (currentTab() !== "log") { showTab("log", true); return; }
     if (!ourState()) {
       toast("한 번 더 누르면 앱이 닫혀요");
       clearTimeout(exitTimer);
@@ -651,19 +652,137 @@
   window.addEventListener("pagehide", flushAll);
   window.addEventListener("online", () => { if (CONN) replayPending(); });
 
-  /* ---------- tabs ---------- */
-  function showTab(stats, fromPop) {
-    if (stats && $("statsView").hidden && !fromPop) pushBack();
-    $("tabLog").setAttribute("aria-selected", String(!stats));
-    $("tabStats").setAttribute("aria-selected", String(stats));
-    $("logHead").hidden = stats; $("logView").hidden = stats;
-    $("statsHead").hidden = !stats; $("statsView").hidden = !stats;
-    if (stats) { flushAll(); loadStats(); }
+  /* ---------- tabs: 수유노트 / 통계 / 소독 ---------- */
+  const currentTab = () => (!$("statsView").hidden ? "stats" : !$("cleanView").hidden ? "clean" : "log");
+  function showTab(name, fromPop) {
+    if (name !== "log" && currentTab() === "log" && !fromPop) pushBack();
+    $("tabLog").setAttribute("aria-selected", String(name === "log"));
+    $("tabStats").setAttribute("aria-selected", String(name === "stats"));
+    $("tabClean").setAttribute("aria-selected", String(name === "clean"));
+    $("logHead").hidden = name !== "log"; $("logView").hidden = name !== "log";
+    $("statsHead").hidden = name !== "stats"; $("statsView").hidden = name !== "stats";
+    $("cleanView").hidden = name !== "clean";
+    if (name === "stats") { flushAll(); loadStats(); }
+    if (name === "clean") { flushAll(); openClean(); }
     window.scrollTo(0, 0);
   }
-  const leaveStats = () => { if (!$("statsView").hidden && ourState()) history.back(); else showTab(false); };
+  const leaveStats = () => { if (currentTab() !== "log" && ourState()) history.back(); else showTab("log"); };
   $("tabLog").addEventListener("click", leaveStats);
-  $("tabStats").addEventListener("click", () => showTab(true));
+  $("tabStats").addEventListener("click", () => showTab("stats"));
+  $("tabClean").addEventListener("click", () => showTab("clean"));
+
+  /* ---------- 소독: when were the formula kettle, bottle washer … sterilised ---------- */
+  // one file, clean.json = { items: [...], log: [{ id, item, at: "YYYY-MM-DDTHH:MM", memo }] }
+  // edits queue locally first (survive closing the app), then merge into the file
+  const CL = { data: null, items: ["분유포트", "젖병 세척기"], pick: null, armed: null, flushing: false };
+  const COPS = "feednote-clean-ops-v1";
+  const loadOps = () => ls.get(COPS, []) || [];
+  const saveOps = (o) => ls.set(COPS, o);
+  function applyOps(d, ops) {
+    d.items = Array.isArray(d.items) && d.items.length ? d.items : CL.items.slice();
+    d.log = Array.isArray(d.log) ? d.log : [];
+    ops.forEach((o) => {
+      if (o.op === "add" && !d.log.some((e) => e.id === o.e.id)) d.log.push(o.e);
+      if (o.op === "del") d.log = d.log.filter((e) => e.id !== o.id);
+      if (o.op === "items") d.items = o.items;
+    });
+    d.log.sort((x, y) => (x.at < y.at ? 1 : x.at > y.at ? -1 : 0));
+    return d;
+  }
+  const cleanView = () => applyOps(JSON.parse(JSON.stringify(CL.data || {})), loadOps());
+  function queueOp(o) { const ops = loadOps(); ops.push(o); saveOps(ops); renderClean(); flushClean(); }
+  async function flushClean() {
+    if (CL.flushing) return;
+    const ops = loadOps();
+    if (!ops.length) return;
+    CL.flushing = true;
+    try {
+      const r = await mutate("clean.json", () => ({ items: CL.items.slice(), log: [] }), (d) => { applyOps(d, ops); return { changed: true, data: d }; }, "소독 기록");
+      CL.data = r.data;
+      saveOps(loadOps().slice(ops.length));
+      setStatus("소독 기록을 저장했어요");
+    } catch (e) { handleErr(e); }
+    finally { CL.flushing = false; renderClean(); if (loadOps().length && !document.hidden) setTimeout(flushClean, 5000); }
+  }
+  async function loadClean(silent) {
+    try {
+      const f = await readJson("clean.json");
+      CL.data = f.data || { items: CL.items.slice(), log: [] };
+      renderClean();
+    } catch (e) { if (!silent) handleErr(e); }
+  }
+  const localStamp = (d) => `${keyOf(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  function openClean() {
+    const now = new Date();
+    $("cleanDate").value = keyOf(now);
+    $("cleanDate").max = keyOf(now);
+    $("cleanTime").value = `${pad(now.getHours())}:${pad(Math.floor(now.getMinutes() / 5) * 5)}`;
+    renderClean();
+    flushClean().then(() => loadClean());
+  }
+  function agoText(at) {
+    const [d, t] = at.split("T"); const [hh, mm] = t.split(":").map(Number);
+    const when = parseKey(d); when.setHours(hh, mm, 0, 0);
+    const mins = Math.floor((Date.now() - when) / 60000);
+    if (mins < 1) return "방금";
+    if (mins < 60) return `${mins}분 전`;
+    if (mins < 1440) return `${Math.floor(mins / 60)}시간 전`;
+    const days = Math.round((parseKey(keyOf(new Date())) - parseKey(d)) / 86400000);
+    return days === 1 ? "어제" : `${days}일 전`;
+  }
+  const dayLabel = (k) => { const d = parseKey(k); const today = keyOf(new Date()); const y = parseKey(today); y.setDate(y.getDate() - 1);
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})${k === today ? " · 오늘" : k === keyOf(y) ? " · 어제" : ""}`; };
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function renderClean() {
+    const v = cleanView();
+    const items = v.items;
+    if (!CL.pick || !items.includes(CL.pick)) CL.pick = items[0];
+    // one card per item: last time it was sterilised + a one-tap button
+    $("cleanItems").innerHTML = items.map((it) => {
+      const last = v.log.find((e) => e.item === it);
+      const when = last ? `마지막 <b>${Number(last.at.slice(5, 7))}/${Number(last.at.slice(8, 10))} ${last.at.slice(11)}</b><br>${agoText(last.at)}` : "아직 기록이 없어요";
+      return `<div class="citem"><h4>${esc(it)}</h4><div class="when">${when}</div><button type="button" data-now="${esc(it)}">지금 소독했어요</button></div>`;
+    }).join("");
+    $("cleanPick").innerHTML = items.map((it) => `<button type="button" role="radio" aria-checked="${it === CL.pick}" data-pick="${esc(it)}">${esc(it)}</button>`).join("");
+    if (document.activeElement !== $("cleanItemsEdit")) $("cleanItemsEdit").value = items.join(", ");
+    // log grouped by date, newest first
+    const groups = []; let cur = null;
+    v.log.slice(0, 150).forEach((e) => { const k = e.at.slice(0, 10); if (!cur || cur.k !== k) { cur = { k, list: [] }; groups.push(cur); } cur.list.push(e); });
+    $("cleanLog").innerHTML = groups.length ? groups.map((g) => `<div class="cday"><h5>${dayLabel(g.k)}</h5>${g.list.map((e) => `
+      <div class="centry"><span class="t">${e.at.slice(11)}</span><span class="w">${esc(e.item)}${e.memo ? `<small>${esc(e.memo)}</small>` : ""}</span>
+      <button type="button" data-del="${esc(e.id)}" class="${CL.armed === e.id ? "arm" : ""}" aria-label="${esc(e.item)} 기록 지우기">${CL.armed === e.id ? "지우기" : "✕"}</button></div>`).join("")}</div>`).join("")
+      : `<p class="empty-note">아직 소독 기록이 없어요. 위에서 [지금 소독했어요]를 눌러 보세요.</p>`;
+  }
+  function addClean(item, at, memo) {
+    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), item, at, memo: memo || "" };
+    queueOp({ op: "add", e });
+  }
+  $("cleanItems").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-now]"); if (!b) return;
+    addClean(b.dataset.now, localStamp(new Date()), "");
+    toast(`${b.dataset.now} 소독 기록했어요`);
+  });
+  $("cleanPick").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-pick]"); if (b) { CL.pick = b.dataset.pick; renderClean(); } });
+  $("cleanForm").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const d = $("cleanDate").value, t = $("cleanTime").value;
+    if (!validDate(d) || !/^\d{2}:\d{2}$/.test(t) || !CL.pick) { toast("날짜와 시간을 확인해 주세요"); return; }
+    addClean(CL.pick, `${d}T${t}`, $("cleanMemo").value.trim().slice(0, 200));
+    $("cleanMemo").value = "";
+    toast(`${Number(d.slice(5, 7))}/${Number(d.slice(8))} ${t} ${CL.pick} 기록했어요`);
+  });
+  $("cleanLog").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-del]"); if (!b) return;
+    const id = b.dataset.del;
+    if (CL.armed === id) { CL.armed = null; queueOp({ op: "del", id }); return; }
+    CL.armed = id; renderClean();
+    clearTimeout(CL.armT); CL.armT = setTimeout(() => { CL.armed = null; renderClean(); }, 3000);
+  });
+  $("cleanItemsEdit").addEventListener("change", () => {
+    const list = [...new Set($("cleanItemsEdit").value.split(/[,，]/).map((x) => x.trim().slice(0, 20)).filter(Boolean))].slice(0, 12);
+    if (!list.length) { renderClean(); return; }
+    queueOp({ op: "items", items: list });
+  });
 
   /* ---------- stats ---------- */
   const ST = { mode: "week", ref: new Date(), days: [], data: {}, token: 0 };
@@ -838,7 +957,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261106154839";
+  const APP_VERSION = "20261108075223";
   async function checkUpdate() {
     if (busy()) return;
     try {
@@ -863,5 +982,6 @@
   }
   armGuard();
   replayPending().finally(() => loadDay());
+  flushClean();
   checkUpdate();
 })();
