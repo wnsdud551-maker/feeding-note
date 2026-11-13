@@ -460,7 +460,7 @@
     const iv = Number(st.interval);
     if (iv >= 60 && iv <= 360 && iv !== S.interval) { S.interval = iv; $("interval").value = String(iv); renderSince(); }
   }
-  function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null || pickMinHour != null; }
+  function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null || pickMinHour != null || openSheetId === "voiceSheet"; }
   setInterval(() => {
     if (document.hidden || !CONN || busy()) return;
     if (Object.keys(loadPending()).length) replayPending();
@@ -510,6 +510,7 @@
   function hideSheet() {
     if (openSheetId === "mlSheet") closePicker();
     else if (openSheetId === "minSheet") closeMinPicker();
+    else if (openSheetId === "voiceSheet") closeVoice();
     openSheetId = null;
   }
   // a guard entry sits on top of the start page: the first back on the log screen only shows a notice,
@@ -529,7 +530,7 @@
       exitTimer = setTimeout(armGuard, 2000);
     }
   });
-  ["mlSheet", "minSheet"].forEach((id) => $(id).addEventListener("click", (e) => { if (e.target === $(id)) requestClose(); }));
+  ["mlSheet", "minSheet", "voiceSheet"].forEach((id) => $(id).addEventListener("click", (e) => { if (e.target === $(id)) requestClose(); }));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSheetId) requestClose(); });
 
   /* ---------- formula amount picker ---------- */
@@ -610,7 +611,7 @@
     flushAll(); S.date = key; S.rows = {}; S.prevRows = {}; S.dayMemo = "";
     const pm = loadPending()[`${key}/memo`];
     $("dayMemo").value = pm ? pm.memo : "";
-    renderTitle(); renderRows(); loadDay();
+    renderTitle(); renderRows(); return loadDay();
   }
   function shift(n) {
     const d = parseKey(S.date); d.setDate(d.getDate() + n);
@@ -651,6 +652,108 @@
   });
   window.addEventListener("pagehide", flushAll);
   window.addEventListener("online", () => { if (CONN) replayPending(); });
+
+  /* ---------- voice input: the phone's own speech recognition + voice-parse.js ---------- */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const V = { rec: null, undo: null, closeT: null, got: false };
+  function voiceUI(state, title, html) {
+    $("vTitle").textContent = title;
+    $("vText").innerHTML = html;
+    $("vMic").className = "vmic" + (state === "listen" ? " on" : state === "done" ? " done" : "");
+    $("vUndo").hidden = state !== "done";
+    $("vAgain").hidden = state === "listen";
+  }
+  function openVoice() {
+    if (currentTab() !== "log") showTab("log");
+    showSheet("voiceSheet");
+    startListening();
+  }
+  function startListening() {
+    clearTimeout(V.closeT); V.undo = null; V.got = false;
+    if (!SR) {
+      voiceUI("error", "음성 인식을 쓸 수 없어요", "이 브라우저는 음성 인식을 지원하지 않아요.<br>크롬(Chrome)이나 삼성 인터넷으로 열어 주세요.");
+      $("vAgain").hidden = true; return;
+    }
+    try { if (V.rec) V.rec.abort(); } catch (e) {}
+    const rec = new SR();
+    V.rec = rec;
+    rec.lang = "ko-KR"; rec.interimResults = true; rec.maxAlternatives = 3; rec.continuous = false;
+    voiceUI("listen", "듣고 있어요…", `예) "3시 20분 분유 120", "소변 두 번", "비타민 먹였어"`);
+    rec.onresult = (ev) => {
+      if (V.rec !== rec) return;
+      const res = ev.results[ev.results.length - 1];
+      if (!res.isFinal) { $("vText").innerHTML = `<q>${esc(res[0].transcript)}</q>`; return; }
+      V.got = true;
+      const alts = Array.from(res).map((a) => a.transcript);
+      handleSpeech(alts);
+    };
+    rec.onerror = (ev) => {
+      if (V.rec !== rec) return;
+      V.got = true;
+      const msg = ev.error === "not-allowed" || ev.error === "service-not-allowed"
+        ? "마이크 사용이 막혀 있어요.<br>브라우저 설정 → 사이트 설정 → 마이크에서 허용해 주세요."
+        : ev.error === "no-speech" ? "아무 소리도 안 들렸어요. 마이크 가까이에서 다시 말해 주세요."
+        : ev.error === "network" ? "음성 인식에 인터넷 연결이 필요해요."
+        : ev.error === "aborted" ? "" : "잘 못 들었어요. 다시 말해 주세요.";
+      if (msg) voiceUI("error", "다시 해 볼까요?", msg);
+    };
+    rec.onend = () => { if (V.rec === rec && !V.got) voiceUI("error", "다시 해 볼까요?", "잘 못 들었어요. 다시 말해 주세요."); };
+    try { rec.start(); } catch (e) { voiceUI("error", "다시 해 볼까요?", "음성 인식을 시작하지 못했어요."); }
+  }
+  function closeVoice() {
+    $("voiceSheet").hidden = true;
+    clearTimeout(V.closeT);
+    const rec = V.rec; V.rec = null;
+    try { if (rec) rec.abort(); } catch (e) {}
+  }
+  async function handleSpeech(alts) {
+    const now = new Date();
+    const items = (cleanView().items) || CL.items;
+    let r = null;
+    for (const a of alts) { const x = window.parseVoice(a, now, items); if (x.understood) { r = x; break; } }
+    if (!r) {
+      voiceUI("error", "무슨 기록인지 모르겠어요", `<q>${esc(alts[0] || "")}</q>이렇게 말해 보세요: "분유 120", "3시 반에 140 먹었어", "소변 두 번", "비타민", "메모 트림 잘 함"`);
+      return;
+    }
+    const key = keyOf(r.date);
+    if (key !== S.date) await goDate(key);
+    else if (S.loadedDate !== S.date) await loadDay(true);
+    const row = R[r.hour];
+    const before = rowFromDom(row);
+    const parts = [];
+    if (r.ml != null) {
+      const min = r.timeSaid ? r.min : nowMin5();
+      row.m.value = String(min); row.ml.value = String(r.ml);
+      parts.push(`분유 <b>${r.ml}ml</b>`);
+    }
+    if (r.pee) { setCount(row.pee, Math.min(5, before.pee + r.pee), row.h); parts.push(`소변 <b>${r.pee}회</b>`); }
+    if (r.poo) { setCount(row.poo, Math.min(5, before.poo + r.poo), row.h); parts.push(`대변 <b>${r.poo}회</b>`); }
+    if (r.vit) { setVit(row.vit, true); parts.push("<b>비타민</b>"); }
+    if (r.memo) { row.memo.value = before.memo ? `${before.memo}, ${r.memo}` : r.memo; grow(row.memo); parts.push(`메모 "${esc(r.memo)}"`); }
+    const rowChanged = r.ml != null || r.pee || r.poo || r.vit || r.memo;
+    if (rowChanged) scheduleSave(row.h, 0);
+    const stamp = localStamp(r.date);
+    const cleanIds = r.clean.map((it) => addClean(it, stamp, ""));
+    if (r.clean.length) parts.push(`<b>${r.clean.map(esc).join(", ")}</b> 소독`);
+    const mm = r.ml != null ? Number(row.m.value) : r.min;
+    const whenTxt = `${key !== keyOf(now) ? `${Number(key.slice(5, 7))}/${Number(key.slice(8))} ` : ""}${r.hour}시 ${pad(mm)}분`;
+    if (rowChanged) { row.el.scrollIntoView({ block: "center", behavior: "auto" }); }
+    V.undo = () => {
+      if (rowChanged) {
+        row.m.value = before.min ?? ""; row.ml.value = before.ml ?? "";
+        setVit(row.vit, before.vit); setCount(row.pee, before.pee, row.h); setCount(row.poo, before.poo, row.h);
+        row.memo.value = before.memo; grow(row.memo);
+        scheduleSave(row.h, 0);
+      }
+      cleanIds.forEach((id) => queueOp({ op: "del", id }));
+    };
+    voiceUI("done", "기록했어요 ✓", `<q>${esc(r.text)}</q>${whenTxt} · ${parts.join(" · ")}`);
+    V.closeT = setTimeout(() => { if (openSheetId === "voiceSheet") requestClose(); }, 4000);
+  }
+  $("micBtn").addEventListener("click", openVoice);
+  $("vAgain").addEventListener("click", startListening);
+  $("vUndo").addEventListener("click", () => { clearTimeout(V.closeT); if (V.undo) { V.undo(); V.undo = null; } voiceUI("error", "되돌렸어요", "방금 음성 기록을 취소했어요."); });
+  $("voiceSheet").addEventListener("pointerdown", () => clearTimeout(V.closeT));
 
   /* ---------- tabs: 수유노트 / 통계 / 소독 ---------- */
   const currentTab = () => (!$("statsView").hidden ? "stats" : !$("cleanView").hidden ? "clean" : "log");
@@ -786,6 +889,7 @@
   function addClean(item, at, memo) {
     const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), item, at, memo: memo || "" };
     queueOp({ op: "add", e });
+    return e.id;
   }
   $("cleanItems").addEventListener("click", (ev) => {
     const b = ev.target.closest("button[data-now]"); if (!b) return;
@@ -989,7 +1093,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261108121050";
+  const APP_VERSION = "20261113133303";
   async function checkUpdate() {
     if (busy()) return;
     try {
