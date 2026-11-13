@@ -270,18 +270,6 @@ header.bar {
 .centry .w small { display: block; color: var(--muted); font-size: .78rem; overflow-wrap: anywhere; }
 .centry button { flex: none; border: 0; background: none; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .centry button.arm { background: var(--warn-soft); color: var(--warn); font-weight: 600; font-size: .78rem; }
-.since-btns { display: flex; gap: 6px; flex: none; align-items: center; }
-.micbtn { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--accent); background: var(--paper); color: var(--accent); display: grid; place-items: center; cursor: pointer; padding: 0; }
-.micbtn svg { width: 20px; height: 20px; fill: currentColor; }
-.vmic { width: 76px; height: 76px; margin: 0 auto; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
-.vmic svg { width: 36px; height: 36px; fill: currentColor; }
-.vmic.on { background: var(--accent); color: var(--paper); }
-@media (prefers-reduced-motion: no-preference) { .vmic.on { animation: vlisten 1.2s ease-in-out infinite; } }
-@keyframes vlisten { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); } 50% { box-shadow: 0 0 0 14px var(--accent-soft); } }
-.vmic.done { background: var(--vit-soft); color: var(--vit); }
-.vtext { margin: 0; text-align: center; font-size: .95rem; line-height: 1.55; color: var(--muted); min-height: 3em; word-break: keep-all; }
-.vtext b { color: var(--ink); }
-.vtext q { display: block; color: var(--ink); font-size: 1.02rem; margin-bottom: 4px; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -360,7 +348,7 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
       </div>
       <div class="since">
         <span id="since">수유 기록을 남기면 경과 시간이 보여요</span>
-        <div class="since-btns"><button class="micbtn" id="micBtn" type="button" aria-label="음성으로 기록"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 0 0-7 0v5A3.5 3.5 0 0 0 12 15zm6-3.6a1 1 0 0 0-2 0 4 4 0 0 1-8 0 1 1 0 0 0-2 0 6 6 0 0 0 5 5.9V20H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-2.7a6 6 0 0 0 5-5.9z"/></svg></button><button class="nowbtn" id="nowBtn">지금 기록</button></div>
+        <button class="nowbtn" id="nowBtn">지금 기록</button>
       </div>
     </div>
 
@@ -493,17 +481,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </div>
 </div>
 
-<div class="picker-bg" id="voiceSheet" hidden>
-  <div class="picker" role="dialog" aria-modal="true" aria-labelledby="vTitle">
-    <h3 id="vTitle">말해 주세요</h3>
-    <div class="vmic" id="vMic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 0 0-7 0v5A3.5 3.5 0 0 0 12 15zm6-3.6a1 1 0 0 0-2 0 4 4 0 0 1-8 0 1 1 0 0 0-2 0 6 6 0 0 0 5 5.9V20H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-2.7a6 6 0 0 0 5-5.9z"/></svg></div>
-    <p class="vtext" id="vText">예) "3시 20분 분유 120", "소변 두 번", "비타민 먹였어"</p>
-    <div class="acts">
-      <button id="vUndo" type="button" hidden>되돌리기</button>
-      <button id="vAgain" type="button" class="ok" hidden>다시 말하기</button>
-    </div>
-  </div>
-</div>
 <div class="picker-bg" id="minSheet" hidden>
   <div class="picker" role="dialog" aria-modal="true" aria-labelledby="minTitle">
     <h3 id="minTitle">몇 분?</h3>
@@ -536,7 +513,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="voice-parse.js?v=20261113133303"></script>
-<script src="app.js?v=20261113133303"></script>
+<script src="app.js?v=20261113144142"></script>
 </body>
 </html>
