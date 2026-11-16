@@ -125,10 +125,10 @@
     }
     if (action === "saveSettings") {
       const iv = Math.round(Number(q.interval));
-      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 180 };
+      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 210, iv2: true };
       await mutate("settings.json", () => ({}), (d) => {
-        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval) return { changed: false };
-        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; return { changed: true };
+        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2) return { changed: false };
+        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; d.iv2 = true; return { changed: true };
       }, "설정");
       settingsCache = want; settingsAt = Date.now();
       return {};
@@ -144,7 +144,7 @@
     throw { code: "server" };
   }
 
-  const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], interval: 180, loadToken: 0, online: true };
+  const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], interval: 210, loadToken: 0, online: true };
 
   /* ---------- local backup of unsent edits (survives closing the app) ---------- */
   const PKEY = "feednote-pending-v1";
@@ -458,7 +458,10 @@
     const pr = Array.isArray(st.presets) ? parsePresets(st.presets.join(",")) : [];
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
     const iv = Number(st.interval);
-    if (iv >= 60 && iv <= 360 && iv !== S.interval) { S.interval = iv; $("interval").value = String(iv); renderSince(); }
+    if (!st.iv2) {
+      // one-time switch of the feeding interval from 3h to 3h30 (asked for on 11/16); later choices are kept
+      if (!applySettings.migrating) { applySettings.migrating = true; S.interval = 210; $("interval").value = "210"; renderSince(); saveSettings("수유 간격을 3시간 30분으로 바꿨어요"); }
+    } else if (iv >= 60 && iv <= 360 && iv !== S.interval) { S.interval = iv; $("interval").value = String(iv); renderSince(); }
   }
   function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null || pickMinHour != null; }
   setInterval(() => {
@@ -491,7 +494,7 @@
   async function saveSettings(msg) {
     try { await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval }); setStatus(msg); } catch (e) { handleErr(e); }
   }
-  $("interval").addEventListener("change", () => { S.interval = Number($("interval").value) || 180; renderSince(); saveSettings("수유 간격을 저장했어요"); });
+  $("interval").addEventListener("change", () => { S.interval = Number($("interval").value) || 210; renderSince(); saveSettings("수유 간격을 저장했어요"); });
   $("birth").addEventListener("change", () => { S.birth = $("birth").value; renderTitle(); saveSettings("생일을 저장했어요"); });
   const parsePresets = (t) => [...new Set(String(t).split(/[^0-9]+/).map(Number).filter((n) => n > 0 && n <= 1000))].slice(0, 9);
   $("presets").addEventListener("change", () => {
@@ -1007,7 +1010,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261116085247";
+  const APP_VERSION = "20261116113916";
   async function checkUpdate() {
     if (busy()) return;
     try {
