@@ -645,9 +645,27 @@
     const today = keyOf(new Date()), nowH = new Date().getHours();
     R.forEach((r, i) => r.el.classList.toggle("current", S.date === today && i === nowH));
   }, 30000);
+  // opening the app (or coming back to it) lands on the current hour, ready to write
+  let hiddenAt = 0;
+  function scrollToNow() {
+    const now = new Date();
+    if (currentTab() !== "log" || busy()) return;
+    if (S.date !== keyOf(now)) { goDate(keyOf(now)); }
+    // show the hour before too, so the last feed is in view right above the current hour
+    const r = R[Math.max(0, now.getHours() - 1)];
+    const bar = document.querySelector("header.bar");
+    // the sticky header covers the top of the screen once scrolled, so land just below it
+    const head = bar.getBoundingClientRect().height + (parseFloat(getComputedStyle(bar).top) || 0);
+    const y = r.el.getBoundingClientRect().top + window.scrollY - head - 8;
+    window.scrollTo({ top: Math.max(0, y), behavior: "auto" });
+  }
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) flushAll();
-    else if (CONN) { renderSince(); replayPending().then(() => { if (!busy()) loadDay(true); }); }
+    if (document.hidden) { flushAll(); hiddenAt = Date.now(); }
+    else if (CONN) {
+      renderSince();
+      if (hiddenAt && Date.now() - hiddenAt > 60000) scrollToNow();
+      replayPending().then(() => { if (!busy()) loadDay(true); });
+    }
   });
   window.addEventListener("pagehide", flushAll);
   window.addEventListener("online", () => { if (CONN) replayPending(); });
@@ -989,7 +1007,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261113144142";
+  const APP_VERSION = "20261116085247";
   async function checkUpdate() {
     if (busy()) return;
     try {
@@ -1013,7 +1031,12 @@
     return;
   }
   armGuard();
-  replayPending().finally(() => loadDay());
+  // the browser would otherwise put back the old scroll position after loading
+  try { history.scrollRestoration = "manual"; } catch (e) {}
+  requestAnimationFrame(scrollToNow);
+  replayPending().finally(() => loadDay().then(() => { if (window.scrollY < 50 || !scrolledByUser) scrollToNow(); }));
+  let scrolledByUser = false;
+  ["touchstart", "wheel"].forEach((ev) => window.addEventListener(ev, () => { scrolledByUser = true; }, { once: true, passive: true }));
   flushClean();
   checkUpdate();
 })();
