@@ -125,10 +125,10 @@
     }
     if (action === "saveSettings") {
       const iv = Math.round(Number(q.interval));
-      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 210, iv2: true };
+      const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 210, iv2: true, nowMl: Math.max(10, Math.min(400, Math.round(Number(q.nowMl) || 140))) };
       await mutate("settings.json", () => ({}), (d) => {
-        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2) return { changed: false };
-        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; d.iv2 = true; return { changed: true };
+        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2 && d.nowMl === want.nowMl) return { changed: false };
+        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; d.iv2 = true; d.nowMl = want.nowMl; return { changed: true };
       }, "설정");
       settingsCache = want; settingsAt = Date.now();
       return {};
@@ -144,7 +144,7 @@
     throw { code: "server" };
   }
 
-  const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], interval: 210, loadToken: 0, online: true };
+  const S = { date: keyOf(new Date()), rows: {}, prevRows: {}, dayMemo: "", birth: "", presets: [120, 140, 160], interval: 210, nowMl: 140, loadToken: 0, online: true };
 
   /* ---------- local backup of unsent edits (survives closing the app) ---------- */
   const PKEY = "feednote-pending-v1";
@@ -457,6 +457,8 @@
     if (typeof st.birth === "string") { S.birth = st.birth; if (document.activeElement !== $("birth")) $("birth").value = S.birth; }
     const pr = Array.isArray(st.presets) ? parsePresets(st.presets.join(",")) : [];
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
+    const nm = Number(st.nowMl);
+    if (nm >= 10 && nm <= 400 && nm !== S.nowMl && !nowMlTimer) { S.nowMl = nm; renderNowMl(); }
     const iv = Number(st.interval);
     if (!st.iv2) {
       // one-time switch of the feeding interval from 3h to 3h30 (asked for on 11/16); later choices are kept
@@ -492,8 +494,19 @@
   $("dayMemo").addEventListener("blur", () => { clearTimeout(memoTimer); memoTimer = null; saveMemo(); });
 
   async function saveSettings(msg) {
-    try { await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval }); setStatus(msg); } catch (e) { handleErr(e); }
+    try { await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval, nowMl: S.nowMl }); setStatus(msg); } catch (e) { handleErr(e); }
   }
+  // amount that 지금 기록 fills in, changed with −10 / +10 under the table
+  let nowMlTimer = null;
+  function renderNowMl() { $("nowMlVal").textContent = S.nowMl; }
+  function nudgeNowMl(d) {
+    S.nowMl = Math.max(10, Math.min(400, (S.nowMl || 140) + d));
+    renderNowMl();
+    clearTimeout(nowMlTimer);
+    nowMlTimer = setTimeout(() => { nowMlTimer = null; saveSettings(`지금 기록 분유량을 ${S.nowMl}ml로 바꿨어요`); }, 800);
+  }
+  $("nowMlMinus").addEventListener("click", () => nudgeNowMl(-10));
+  $("nowMlPlus").addEventListener("click", () => nudgeNowMl(10));
   $("interval").addEventListener("change", () => { S.interval = Number($("interval").value) || 210; renderSince(); saveSettings("수유 간격을 저장했어요"); });
   $("birth").addEventListener("change", () => { S.birth = $("birth").value; renderTitle(); saveSettings("생일을 저장했어요"); });
   const parsePresets = (t) => [...new Set(String(t).split(/[^0-9]+/).map(Number).filter((n) => n > 0 && n <= 1000))].slice(0, 9);
@@ -628,7 +641,7 @@
     const r = R[now.getHours()];
     const hadMl = r.ml.value !== "";
     if (r.m.value === "") r.m.value = nowMin5();
-    if (!hadMl) r.ml.value = String(S.presets[0] || 120); // usual amount; tap the cell to change it
+    if (!hadMl) r.ml.value = String(S.nowMl || 140); // amount set under the table; tap the cell to change this one
     scheduleSave(r.h, 0);
     r.el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     if (hadMl) setTimeout(() => openPicker(r.h), 250); // this hour already has a feed: let them adjust it
@@ -1010,7 +1023,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261116113916";
+  const APP_VERSION = "20261120151151";
   async function checkUpdate() {
     if (busy()) return;
     try {

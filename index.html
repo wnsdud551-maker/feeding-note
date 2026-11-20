@@ -270,6 +270,11 @@ header.bar {
 .centry .w small { display: block; color: var(--muted); font-size: .78rem; overflow-wrap: anywhere; }
 .centry button { flex: none; border: 0; background: none; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .centry button.arm { background: var(--warn-soft); color: var(--warn); font-weight: 600; font-size: .78rem; }
+.nowml { display: flex; align-items: center; gap: 6px; margin-top: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: .88rem; color: var(--muted); }
+.nowml span:first-child { flex: 1; min-width: 0; line-height: 1.35; }
+.nowml b { color: var(--accent); }
+.nowml strong { flex: none; min-width: 4em; text-align: center; color: var(--ink); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.nowml button { flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 600; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -374,6 +379,12 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
       <div class="grid total" role="row">
         <div>Total</div><div id="tFeeds">0회</div><div id="tMl">0</div><div id="tVit">0</div><div id="tPee">0</div><div id="tPoo">0</div><div></div>
       </div>
+    </div>
+    <div class="nowml">
+      <span><b>지금 기록</b> 누르면 분유</span>
+      <button type="button" id="nowMlMinus" aria-label="10ml 줄이기">−10</button>
+      <strong><span id="nowMlVal">140</span>ml</strong>
+      <button type="button" id="nowMlPlus" aria-label="10ml 늘리기">+10</button>
     </div>
     <p class="hint">소·대 버튼은 누를 때마다 횟수가 올라가요 (소 → 소2 → 소3 …). 5번 다음에 한 번 더 누르면 지워져요. 입력하면 바로 저장되니 그냥 꺼도 돼요.</p>
 
@@ -513,6 +524,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261116113916"></script>
+<script src="app.js?v=20261120151151"></script>
 </body>
 </html>
