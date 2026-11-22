@@ -87,8 +87,8 @@
   const validDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d));
   function prevKey(k) { const d = parseKey(k); d.setDate(d.getDate() - 1); return keyOf(d); }
   function daySummary(d) {
-    const o = { feeds: 0, ml: 0, pee: 0, poo: 0 };
-    Object.values((d && d.hours) || {}).forEach((v) => { if (v.ml) { o.feeds++; o.ml += v.ml; } o.pee += cnt(v.pee); o.poo += cnt(v.poo); });
+    const o = { feeds: 0, ml: 0, pee: 0, poo: 0, spit: 0, vit: 0 };
+    Object.values((d && d.hours) || {}).forEach((v) => { if (v.ml) { o.feeds++; o.ml += v.ml; } o.pee += cnt(v.pee); o.poo += cnt(v.poo); if (v.spit) o.spit++; if (v.vit) o.vit = 1; });
     return o;
   }
   let settingsCache = null, settingsAt = 0;
@@ -142,7 +142,7 @@
       const today = keyOf(new Date());
       const got = await Promise.all(keys.filter((k) => k <= today).map((k) => readJson(dayPath(k)).then((f) => [k, f.data])));
       const days = {};
-      got.forEach(([k, d]) => { if (!d) return; const s = daySummary(d); if (s.feeds || s.ml || s.pee || s.poo) days[k] = s; });
+      got.forEach(([k, d]) => { if (!d) return; const s = daySummary(d); if (s.feeds || s.ml || s.pee || s.poo || s.spit || s.vit) days[k] = s; });
       return { days };
     }
     throw { code: "server" };
@@ -298,7 +298,7 @@
   function renderTotals() {
     const rows = {}; R.forEach((r) => { rows[r.h] = rowFromDom(r); r.el.classList.toggle("filled", !isEmpty(rows[r.h])); });
     const s = summarize(rows);
-    $("sFeeds").textContent = s.feeds; $("sMl").textContent = s.ml; $("sPee").textContent = s.pee; $("sPoo").textContent = s.poo;
+    $("sFeeds").textContent = s.feeds; $("sMl").textContent = s.ml; $("sPee").textContent = s.pee; $("sPoo").textContent = s.poo; $("sSpit").textContent = s.spit;
     $("tFeeds").textContent = s.feeds + "회"; $("tMl").textContent = s.ml; $("tVit").textContent = s.vit; $("tPee").textContent = s.pee; $("tPoo").textContent = s.poo; $("tSpit").textContent = s.spit;
     renderSince();
     renderVitWarn();
@@ -939,7 +939,7 @@
     const done = ST.days.filter((k) => k < today && ST.data[k]).map((k) => ST.data[k]);
     const base = done.length ? done : recs;
     const n = base.length;
-    const sum = (list) => list.reduce((a, r) => ({ feeds: a.feeds + (r.feeds || 0), ml: a.ml + (r.ml || 0), pee: a.pee + (r.pee || 0), poo: a.poo + (r.poo || 0) }), { feeds: 0, ml: 0, pee: 0, poo: 0 });
+    const sum = (list) => list.reduce((a, r) => ({ feeds: a.feeds + (r.feeds || 0), ml: a.ml + (r.ml || 0), pee: a.pee + (r.pee || 0), poo: a.poo + (r.poo || 0), spit: a.spit + (r.spit || 0), vit: a.vit + (r.vit ? 1 : 0) }), { feeds: 0, ml: 0, pee: 0, poo: 0, spit: 0, vit: 0 });
     const b = sum(base), tot = sum(recs);
     const avg = (x) => (n ? fmt1(x / n) : "–");
     $("kAvgMl").innerHTML = `${n ? Math.round(b.ml / n).toLocaleString("ko-KR") : "–"}<small>ml</small>`;
@@ -950,16 +950,22 @@
     $("kTotPee").textContent = `합계 ${tot.pee}회`;
     $("kAvgPoo").innerHTML = `${avg(b.poo)}<small>회</small>`;
     $("kTotPoo").textContent = `합계 ${tot.poo}회`;
+    $("kAvgSpit").innerHTML = `${avg(b.spit)}<small>회</small>`;
+    $("kTotSpit").textContent = `합계 ${tot.spit}회 · 게운 날 ${recs.filter((r) => r.spit).length}일`;
+    // counted over days that have any record, so days before the app was used don't count as missed
+    const recDays = recs.length;
+    $("kVitDays").innerHTML = recDays ? `${tot.vit}<small>/ ${recDays}일</small>` : "–";
+    $("kVitMiss").textContent = !recDays ? "기록한 날이 없어요" : recDays - tot.vit > 0 ? `기록한 날 중 빠뜨린 날 ${recDays - tot.vit}일` : "하루도 안 빠뜨렸어요";
     renderChart();
     const rowsHtml = ST.days.filter((k) => k <= today).reverse().map((k) => {
       const d = parseKey(k), r = ST.data[k], dp = dplus(k);
       const label = `${d.getMonth() + 1}/${d.getDate()} (${WD[d.getDay()]})${dp ? ` <span style="color:var(--muted);font-size:.72rem">D+${dp}</span>` : ""}`;
-      if (!r) return `<tr class="go" data-k="${k}"><td>${label}</td><td class="empty">–</td><td class="empty">–</td><td class="empty">–</td><td class="empty">–</td></tr>`;
-      return `<tr class="go" data-k="${k}"><td>${label}</td><td>${r.feeds || 0}회</td><td>${(r.ml || 0).toLocaleString("ko-KR")}</td><td>${r.pee || 0}</td><td>${r.poo || 0}</td></tr>`;
+      if (!r) return `<tr class="go" data-k="${k}"><td>${label}</td><td class="empty">–</td><td class="empty">–</td><td class="empty">–</td><td class="empty">–</td><td class="empty">–</td></tr>`;
+      return `<tr class="go" data-k="${k}"><td>${label}</td><td>${r.feeds || 0}회</td><td>${(r.ml || 0).toLocaleString("ko-KR")}</td><td>${r.pee || 0}</td><td>${r.poo || 0}</td><td>${r.spit || 0}</td></tr>`;
     }).join("");
-    $("dailyTable").innerHTML = `<thead><tr><th>날짜</th><th>수유</th><th>분유ml</th><th>소변</th><th>대변</th></tr></thead>
+    $("dailyTable").innerHTML = `<thead><tr><th>날짜</th><th>수유</th><th>분유ml</th><th>소변</th><th>대변</th><th>게움</th></tr></thead>
       <tbody>${rowsHtml || `<tr><td colspan="5" class="empty-note">아직 지나간 날이 없어요</td></tr>`}</tbody>
-      <tfoot><tr><td>합계</td><td>${tot.feeds}회</td><td>${tot.ml.toLocaleString("ko-KR")}</td><td>${tot.pee}</td><td>${tot.poo}</td></tr></tfoot>`;
+      <tfoot><tr><td>합계</td><td>${tot.feeds}회</td><td>${tot.ml.toLocaleString("ko-KR")}</td><td>${tot.pee}</td><td>${tot.poo}</td><td>${tot.spit}</td></tr></tfoot>`;
   }
   $("dailyTable").addEventListener("click", (e) => {
     const tr = e.target.closest("tr.go"); if (!tr) return;
@@ -1004,7 +1010,7 @@
       const k = days[i], r = ST.data[k], d = parseKey(k);
       const cx = ((L + slot * i + slot / 2) / W) * box.clientWidth;
       const ty = ((vals[i] > 0 ? y(vals[i]) : T + ph) / H) * box.clientHeight - 6;
-      tip.innerHTML = `<b>${d.getMonth() + 1}/${d.getDate()} (${WD[d.getDay()]})</b><br>` + (r ? `분유 ${(r.ml || 0).toLocaleString("ko-KR")}ml · ${r.feeds || 0}회<br>소변 ${r.pee || 0} · 대변 ${r.poo || 0}` : "기록 없음");
+      tip.innerHTML = `<b>${d.getMonth() + 1}/${d.getDate()} (${WD[d.getDay()]})</b><br>` + (r ? `분유 ${(r.ml || 0).toLocaleString("ko-KR")}ml · ${r.feeds || 0}회<br>소변 ${r.pee || 0} · 대변 ${r.poo || 0} · 게움 ${r.spit || 0}` : "기록 없음");
       tip.hidden = false;
       const half = tip.offsetWidth / 2;
       tip.style.left = Math.max(half, Math.min(box.clientWidth - half, cx)) + "px";
@@ -1058,7 +1064,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261122074252";
+  const APP_VERSION = "20261122074551";
   async function checkUpdate() {
     if (busy()) return;
     try {
