@@ -215,12 +215,14 @@ header.bar {
   display: flex; align-items: center; gap: 10px; background: var(--warn-soft); color: var(--warn);
   border: 1.5px dashed var(--warn); border-radius: 12px; padding: 8px 10px 8px 12px; font-size: .88rem; font-weight: 600;
 }
+.vitwarn.soft { border-style: solid; border-color: var(--line); background: var(--paper); color: var(--muted); font-weight: 500; padding-block: 5px; }
+.vitwarn.soft .vdot { background: var(--vit-soft); color: var(--vit); animation: none; }
 .vitwarn.past { border-style: solid; border-color: var(--line); background: var(--paper); color: var(--muted); font-weight: 500; }
 .vitwarn .vdot { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--warn); color: var(--paper); font-weight: 700; font-size: .85rem; }
 .vitwarn.past .vdot { background: var(--line); color: var(--muted); }
 .vitwarn span.t { flex: 1; min-width: 0; line-height: 1.35; }
 .vitwarn button { flex: none; border: 0; background: var(--vit); color: var(--paper); font: inherit; font-weight: 700; font-size: .82rem; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
-@media (prefers-reduced-motion: no-preference) { .vitwarn:not(.past) .vdot { animation: vpulse 1.6s ease-in-out infinite; } }
+@media (prefers-reduced-motion: no-preference) { .vitwarn:not(.past):not(.soft) .vdot { animation: vpulse 1.6s ease-in-out infinite; } }
 @keyframes vpulse { 50% { transform: scale(1.15); } }
 .row.next { background: var(--accent-soft); }
 .row.next .hour { color: var(--accent); }
@@ -275,10 +277,10 @@ header.bar {
 .nowml b { color: var(--accent); }
 .nowml strong { flex: none; min-width: 4em; text-align: center; color: var(--ink); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .nowml button { flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 600; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
-.guide { position: relative; margin: 4px 0 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px 12px 8px; }
-.guide label { position: absolute; top: -9px; left: 12px; background: var(--tape); color: var(--ink); font-size: .74rem; font-weight: 700; letter-spacing: .04em; padding: 1px 10px; border-radius: 3px; transform: rotate(-1.5deg); }
-.guide textarea { display: block; width: 100%; min-height: 2.6em; font: inherit; font-size: .92rem; line-height: 1.5; color: var(--ink); background: transparent; border: 0; resize: none; overflow: hidden; padding: 0; }
-.guide textarea:focus { outline: none; }
+.guide { position: relative; margin-top: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 11px 10px 5px; }
+.guide label { position: absolute; top: -8px; left: 10px; background: var(--tape); color: var(--ink); font-size: .7rem; font-weight: 700; letter-spacing: .04em; padding: 0 8px; border-radius: 3px; transform: rotate(-1.5deg); }
+.guide textarea { display: block; width: 100%; min-height: 1.5em; max-height: 4.6em; font: inherit; font-size: .85rem; line-height: 1.5; color: var(--ink); background: transparent; border: 0; resize: none; overflow-y: auto; padding: 0; }
+.guide textarea:focus { outline: none; max-height: 12em; }
 .guide:focus-within { border-color: var(--accent); }
 .guide textarea::placeholder { color: var(--muted); opacity: .6; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
@@ -361,6 +363,10 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
         <span id="since">수유 기록을 남기면 경과 시간이 보여요</span>
         <button class="nowbtn" id="nowBtn">지금 기록</button>
       </div>
+      <div class="guide">
+        <label for="guideText">수유 기준</label>
+        <textarea id="guideText" rows="1" placeholder="눌러서 적어 두세요. 예) 3시간 반 간격 · 1회 140ml · 하루 800ml 이하"></textarea>
+      </div>
     </div>
 
     <div id="statsHead" hidden style="display:grid;gap:10px">
@@ -377,10 +383,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </header>
 
   <section id="logView">
-    <div class="guide">
-      <label for="guideText">수유 기준</label>
-      <textarea id="guideText" rows="2" placeholder="예) 3시간 반 간격 · 1회 140ml · 하루 총 800ml 넘지 않기 · 비타민D 하루 1방울"></textarea>
-    </div>
     <div class="sheet" role="table" aria-label="시간별 기록">
       <div class="grid head" role="row">
         <div>시간</div><div>분</div><div>분유ml</div><div title="비타민">비타</div><div>소변</div><div>대변</div><div>기타</div>
@@ -534,6 +536,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261122073850"></script>
+<script src="app.js?v=20261122074101"></script>
 </body>
 </html>

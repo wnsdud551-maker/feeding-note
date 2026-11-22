@@ -309,12 +309,14 @@
     const loaded = S.loadedDate === S.date;
     if (any || !loaded || S.date > today) { el.hidden = true; return; }
     if (S.date === today) {
-      const show = new Date().getHours() >= 18;
-      el.hidden = !show; el.classList.remove("past");
-      $("vitText").textContent = "오후 6시가 지났는데 오늘 비타민을 아직 안 먹였어요";
+      // all day: a soft reminder; from 18:00 it turns into the orange alert
+      const late = new Date().getHours() >= 18;
+      el.hidden = false;
+      el.classList.remove("past"); el.classList.toggle("soft", !late);
+      $("vitText").textContent = late ? "오후 6시가 지났는데 오늘 비타민을 아직 안 먹였어요" : "오늘 비타민 아직이에요";
       $("vitNow").hidden = false;
     } else {
-      el.hidden = false; el.classList.add("past");
+      el.hidden = false; el.classList.add("past"); el.classList.remove("soft");
       $("vitText").textContent = "이 날은 비타민 체크가 없어요";
       $("vitNow").hidden = true;
     }
@@ -1054,7 +1056,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261122073850";
+  const APP_VERSION = "20261122074101";
   async function checkUpdate() {
     if (busy()) return;
     try {
