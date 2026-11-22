@@ -126,15 +126,16 @@
     if (action === "saveSettings") {
       const iv = Math.round(Number(q.interval));
       const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 210, iv2: true, nowMl: Math.max(10, Math.min(400, Math.round(Number(q.nowMl) || 140))) };
-      const hasGuide = typeof q.guide === "string"; // only sent once this phone has seen the saved text
+      // 수유 기준 carries the time it was written; an older copy never replaces a newer one
+      const hasGuide = typeof q.guide === "string" && typeof q.guideAt === "string";
       const guide = hasGuide ? q.guide.slice(0, 2000) : null;
       await mutate("settings.json", () => ({}), (d) => {
-        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2 && d.nowMl === want.nowMl && (!hasGuide || d.guide === guide)) return { changed: false };
+        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2 && d.nowMl === want.nowMl && (!hasGuide || d.guide === guide || (d.guideAt || "") >= q.guideAt)) return { changed: false };
         d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; d.iv2 = true; d.nowMl = want.nowMl;
-        if (hasGuide) d.guide = guide;
+        if (hasGuide && (d.guideAt || "") < q.guideAt) { d.guide = guide; d.guideAt = q.guideAt; }
         return { changed: true };
       }, "설정");
-      settingsCache = hasGuide ? { ...want, guide } : { ...want, guide: (settingsCache || {}).guide }; settingsAt = Date.now();
+      settingsCache = null; settingsAt = 0; // read back on the next load, so both phones see what the file holds
       return {};
     }
     if (action === "stats") {
@@ -467,12 +468,7 @@
     const pr = Array.isArray(st.presets) ? parsePresets(st.presets.join(",")) : [];
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
     // 수유 기준: one note shared by both phones, the same on every day
-    if (!guideTimer && !S.guideDirty && document.activeElement !== $("guideText")) {
-      const g = typeof st.guide === "string" ? st.guide : "";
-      if ($("guideText").value !== g) { $("guideText").value = g; grow($("guideText")); }
-      S.guide = g;
-    }
-    S.guideLoaded = true;
+    applyGuide(st);
     const nm = Number(st.nowMl);
     if (nm >= 10 && nm <= 400 && nm !== S.nowMl && !nowMlTimer) { S.nowMl = nm; renderNowMl(); }
     const iv = Number(st.interval);
@@ -514,17 +510,37 @@
   $("dayMemo").addEventListener("blur", () => { clearTimeout(memoTimer); memoTimer = null; saveMemo(); });
 
   async function saveSettings(msg) {
-    const guideNow = $("guideText").value;
+    const local = loadGuide();
     try {
-      await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval, nowMl: S.nowMl, guide: S.guideLoaded ? guideNow : undefined });
-      if (S.guideLoaded) { S.guide = guideNow; S.guideDirty = false; }
+      await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval, nowMl: S.nowMl, ...(local ? { guide: local.text, guideAt: local.at } : {}) });
+      if (local && loadGuide() && loadGuide().at === local.at) S.guideDirty = false;
       setStatus(msg);
-    } catch (e) { if (S.guideLoaded && guideNow !== S.guide) S.guideDirty = true; handleErr(e); }
+    } catch (e) { if (local) S.guideDirty = true; handleErr(e); }
   }
+  /* 수유 기준: one note for every day, shared by both phones.
+     This phone keeps its own copy with the time it was written, so the note survives closing the app,
+     a slow connection, or the other phone saving other settings; the newest text always wins. */
+  const GKEY = "feednote-guide-v1";
+  const loadGuide = () => { const g = ls.get(GKEY, null); return g && typeof g.text === "string" && g.at ? g : null; };
+  function applyGuide(st) {
+    const server = typeof st.guide === "string" ? { text: st.guide, at: st.guideAt || "" } : null;
+    const local = loadGuide();
+    if (local && (!server || local.at > server.at)) {
+      // this phone has a newer note than the saved one: show it and save it again
+      if (document.activeElement !== $("guideText") && $("guideText").value !== local.text) { $("guideText").value = local.text; grow($("guideText")); }
+      if (!guideTimer) S.guideDirty = true;
+      return;
+    }
+    if (server && !guideTimer && document.activeElement !== $("guideText")) {
+      if ($("guideText").value !== server.text) { $("guideText").value = server.text; grow($("guideText")); }
+      ls.set(GKEY, { text: server.text, at: server.at || "0" });
+    }
+  }
+  { const g = loadGuide(); if (g) { $("guideText").value = g.text; requestAnimationFrame(() => grow($("guideText"))); } }
   let guideTimer = null;
   $("guideText").addEventListener("input", () => {
     grow($("guideText"));
-    if (!S.guideLoaded) return;
+    ls.set(GKEY, { text: $("guideText").value, at: new Date().toISOString() });
     S.guideDirty = true;
     clearTimeout(guideTimer);
     guideTimer = setTimeout(() => { guideTimer = null; saveSettings("수유 기준을 저장했어요"); }, 900);
@@ -726,6 +742,10 @@
   // Newest first. Add an entry here with every change people will notice (see CLAUDE.md).
   // t: "추가" (new), "변경" (changed), "고침" (fixed). Keep each line short and plain.
   const NEWS = [
+    { id: "2026-11-23", date: "11월 23일", items: [
+      { t: "고침", text: "수유 기준이 날짜가 바뀌어도 사라지지 않게 고쳤어요" },
+      { t: "고침", text: "두 사람이 같이 써도 가장 나중에 적은 수유 기준이 남아요" },
+    ] },
     { id: "2026-11-22", date: "11월 22일", items: [
       { t: "추가", text: "업데이트가 있으면 이렇게 처음 한 번만 알려드려요" },
       { t: "추가", text: "시간마다 게움 🤮 표시를 할 수 있어요" },
@@ -1094,7 +1114,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261122075201";
+  const APP_VERSION = "20261122222627";
   async function checkUpdate() {
     if (busy()) return;
     try {
