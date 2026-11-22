@@ -275,6 +275,12 @@ header.bar {
 .nowml b { color: var(--accent); }
 .nowml strong { flex: none; min-width: 4em; text-align: center; color: var(--ink); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .nowml button { flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-weight: 600; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+.guide { position: relative; margin: 4px 0 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px 12px 8px; }
+.guide label { position: absolute; top: -9px; left: 12px; background: var(--tape); color: var(--ink); font-size: .74rem; font-weight: 700; letter-spacing: .04em; padding: 1px 10px; border-radius: 3px; transform: rotate(-1.5deg); }
+.guide textarea { display: block; width: 100%; min-height: 2.6em; font: inherit; font-size: .92rem; line-height: 1.5; color: var(--ink); background: transparent; border: 0; resize: none; overflow: hidden; padding: 0; }
+.guide textarea:focus { outline: none; }
+.guide:focus-within { border-color: var(--accent); }
+.guide textarea::placeholder { color: var(--muted); opacity: .6; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -371,6 +377,10 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </header>
 
   <section id="logView">
+    <div class="guide">
+      <label for="guideText">수유 기준</label>
+      <textarea id="guideText" rows="2" placeholder="예) 3시간 반 간격 · 1회 140ml · 하루 총 800ml 넘지 않기 · 비타민D 하루 1방울"></textarea>
+    </div>
     <div class="sheet" role="table" aria-label="시간별 기록">
       <div class="grid head" role="row">
         <div>시간</div><div>분</div><div>분유ml</div><div title="비타민">비타</div><div>소변</div><div>대변</div><div>기타</div>
@@ -524,6 +534,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261120151151"></script>
+<script src="app.js?v=20261122073720"></script>
 </body>
 </html>

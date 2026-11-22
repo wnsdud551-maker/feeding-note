@@ -126,11 +126,15 @@
     if (action === "saveSettings") {
       const iv = Math.round(Number(q.interval));
       const want = { birth: validDate(q.birth) ? q.birth : "", presets: (q.presets || []).map(Number).filter((n) => n > 0 && n <= 1000).slice(0, 9), interval: iv >= 60 && iv <= 360 ? iv : 210, iv2: true, nowMl: Math.max(10, Math.min(400, Math.round(Number(q.nowMl) || 140))) };
+      const hasGuide = typeof q.guide === "string"; // only sent once this phone has seen the saved text
+      const guide = hasGuide ? q.guide.slice(0, 2000) : null;
       await mutate("settings.json", () => ({}), (d) => {
-        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2 && d.nowMl === want.nowMl) return { changed: false };
-        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; d.iv2 = true; d.nowMl = want.nowMl; return { changed: true };
+        if (d.birth === want.birth && JSON.stringify(d.presets) === JSON.stringify(want.presets) && d.interval === want.interval && d.iv2 && d.nowMl === want.nowMl && (!hasGuide || d.guide === guide)) return { changed: false };
+        d.birth = want.birth; d.presets = want.presets; d.interval = want.interval; d.iv2 = true; d.nowMl = want.nowMl;
+        if (hasGuide) d.guide = guide;
+        return { changed: true };
       }, "설정");
-      settingsCache = want; settingsAt = Date.now();
+      settingsCache = hasGuide ? { ...want, guide } : { ...want, guide: (settingsCache || {}).guide }; settingsAt = Date.now();
       return {};
     }
     if (action === "stats") {
@@ -457,6 +461,13 @@
     if (typeof st.birth === "string") { S.birth = st.birth; if (document.activeElement !== $("birth")) $("birth").value = S.birth; }
     const pr = Array.isArray(st.presets) ? parsePresets(st.presets.join(",")) : [];
     if (pr.length) { S.presets = pr; if (document.activeElement !== $("presets")) $("presets").value = pr.join(", "); }
+    // 수유 기준: one note shared by both phones, the same on every day
+    if (!guideTimer && !S.guideDirty && document.activeElement !== $("guideText")) {
+      const g = typeof st.guide === "string" ? st.guide : "";
+      if ($("guideText").value !== g) { $("guideText").value = g; grow($("guideText")); }
+      S.guide = g;
+    }
+    S.guideLoaded = true;
     const nm = Number(st.nowMl);
     if (nm >= 10 && nm <= 400 && nm !== S.nowMl && !nowMlTimer) { S.nowMl = nm; renderNowMl(); }
     const iv = Number(st.interval);
@@ -468,6 +479,7 @@
   function busy() { return Object.keys(timers).length || Object.values(inflight).some(Boolean) || memoBusy || memoTimer || pickHour != null || pickMinHour != null; }
   setInterval(() => {
     if (document.hidden || !CONN || busy()) return;
+    if (S.guideDirty && !guideTimer) saveSettings("수유 기준을 저장했어요");
     if (Object.keys(loadPending()).length) replayPending();
     else if (currentTab() === "log") loadDay(true);
     else if (currentTab() === "clean") { if (loadOps().length) flushClean(); else loadClean(true); }
@@ -494,8 +506,22 @@
   $("dayMemo").addEventListener("blur", () => { clearTimeout(memoTimer); memoTimer = null; saveMemo(); });
 
   async function saveSettings(msg) {
-    try { await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval, nowMl: S.nowMl }); setStatus(msg); } catch (e) { handleErr(e); }
+    const guideNow = $("guideText").value;
+    try {
+      await api("saveSettings", { birth: S.birth, presets: S.presets, interval: S.interval, nowMl: S.nowMl, guide: S.guideLoaded ? guideNow : undefined });
+      if (S.guideLoaded) { S.guide = guideNow; S.guideDirty = false; }
+      setStatus(msg);
+    } catch (e) { if (S.guideLoaded && guideNow !== S.guide) S.guideDirty = true; handleErr(e); }
   }
+  let guideTimer = null;
+  $("guideText").addEventListener("input", () => {
+    grow($("guideText"));
+    if (!S.guideLoaded) return;
+    S.guideDirty = true;
+    clearTimeout(guideTimer);
+    guideTimer = setTimeout(() => { guideTimer = null; saveSettings("수유 기준을 저장했어요"); }, 900);
+  });
+  $("guideText").addEventListener("blur", () => { if (guideTimer) { clearTimeout(guideTimer); guideTimer = null; saveSettings("수유 기준을 저장했어요"); } });
   // amount that 지금 기록 fills in, changed with −10 / +10 under the table
   let nowMlTimer = null;
   function renderNowMl() { $("nowMlVal").textContent = S.nowMl; }
@@ -1023,7 +1049,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261120151151";
+  const APP_VERSION = "20261122073720";
   async function checkUpdate() {
     if (busy()) return;
     try {
