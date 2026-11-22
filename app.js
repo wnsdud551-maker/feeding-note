@@ -104,7 +104,7 @@
     }
     if (action === "saveRow") {
       const v = q.row || {};
-      const clean = { min: v.min ?? null, ml: v.ml ?? null, vit: !!v.vit, pee: cnt(v.pee), poo: cnt(v.poo), memo: String(v.memo || "").slice(0, 2000), at: q.at };
+      const clean = { min: v.min ?? null, ml: v.ml ?? null, vit: !!v.vit, pee: cnt(v.pee), poo: cnt(v.poo), spit: !!v.spit, memo: String(v.memo || "").slice(0, 2000), at: q.at };
       const empty = isEmpty(clean);
       const r = await mutate(dayPath(q.date), blankDay(q.date), (d) => {
         const cur = d.hours[q.hour];
@@ -171,10 +171,11 @@
       <button class="chk vit" id="v${hh}" aria-pressed="false" aria-label="${hh}시 비타민">V</button>
       <button class="chk pee" id="p${hh}" data-count="0" data-label="소">소</button>
       <button class="chk poo" id="d${hh}" data-count="0" data-label="대">대</button>
+      <button class="chk spit" id="g${hh}" aria-pressed="false" aria-label="${hh}시 게움">🤮</button>
       <textarea id="n${hh}" rows="1" placeholder="메모" aria-label="${hh}시 메모"></textarea>`;
     rowsEl.appendChild(el);
     const r = { el, h: hh, m: el.querySelector(`#m${hh}`), ml: el.querySelector(`#ml${hh}`), vit: el.querySelector(`#v${hh}`),
-      pee: el.querySelector(`#p${hh}`), poo: el.querySelector(`#d${hh}`), memo: el.querySelector(`#n${hh}`) };
+      pee: el.querySelector(`#p${hh}`), poo: el.querySelector(`#d${hh}`), spit: el.querySelector(`#g${hh}`), memo: el.querySelector(`#n${hh}`) };
     R.push(r);
     setCount(r.pee, 0, hh); setCount(r.poo, 0, hh);
 
@@ -185,6 +186,7 @@
     r.ml.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(hh); } });
     r.memo.addEventListener("input", () => { grow(r.memo); onEdit(); });
     r.memo.addEventListener("blur", () => scheduleSave(hh, 0));
+    r.spit.addEventListener("click", () => { setVit(r.spit, r.spit.getAttribute("aria-pressed") !== "true"); scheduleSave(hh, 300); });
     r.vit.addEventListener("click", () => { setVit(r.vit, r.vit.getAttribute("aria-pressed") !== "true"); scheduleSave(hh, 300); });
     [r.pee, r.poo].forEach((b) => b.addEventListener("click", () => {
       const n = (Number(b.dataset.count) + 1) % (MAXC + 1);
@@ -204,14 +206,14 @@
 
   function rowFromDom(r) {
     const num = (v, max) => { if (v === "" || v == null) return null; const n = Math.round(Number(v)); return isFinite(n) ? Math.max(0, Math.min(max, n)) : null; };
-    return { min: num(r.m.value, 59), ml: num(r.ml.value, 1000), vit: r.vit.getAttribute("aria-pressed") === "true", pee: Number(r.pee.dataset.count) || 0, poo: Number(r.poo.dataset.count) || 0, memo: r.memo.value.trim() };
+    return { min: num(r.m.value, 59), ml: num(r.ml.value, 1000), vit: r.vit.getAttribute("aria-pressed") === "true", pee: Number(r.pee.dataset.count) || 0, poo: Number(r.poo.dataset.count) || 0, spit: r.spit.getAttribute("aria-pressed") === "true", memo: r.memo.value.trim() };
   }
-  const isEmpty = (v) => v.min == null && v.ml == null && !v.vit && !cnt(v.pee) && !cnt(v.poo) && !v.memo;
-  const sameRow = (a, v) => a ? (a.min ?? null) === v.min && (a.ml ?? null) === v.ml && !!a.vit === !!v.vit && cnt(a.pee) === v.pee && cnt(a.poo) === v.poo && (a.memo || "") === v.memo : isEmpty(v);
+  const isEmpty = (v) => v.min == null && v.ml == null && !v.vit && !cnt(v.pee) && !cnt(v.poo) && !v.spit && !v.memo;
+  const sameRow = (a, v) => a ? (a.min ?? null) === v.min && (a.ml ?? null) === v.ml && !!a.vit === !!v.vit && cnt(a.pee) === v.pee && cnt(a.poo) === v.poo && !!a.spit === !!v.spit && (a.memo || "") === v.memo : isEmpty(v);
   function summarize(rows) {
-    let feeds = 0, ml = 0, pee = 0, poo = 0, vit = 0;
-    Object.values(rows).forEach((v) => { if (!v) return; if (v.ml) { feeds++; ml += v.ml; } pee += cnt(v.pee); poo += cnt(v.poo); if (v.vit) vit++; });
-    return { feeds, ml, pee, poo, vit };
+    let feeds = 0, ml = 0, pee = 0, poo = 0, vit = 0, spit = 0;
+    Object.values(rows).forEach((v) => { if (!v) return; if (v.ml) { feeds++; ml += v.ml; } pee += cnt(v.pee); poo += cnt(v.poo); if (v.vit) vit++; if (v.spit) spit++; });
+    return { feeds, ml, pee, poo, vit, spit };
   }
 
   /* ---------- saving: one request at a time per hour ---------- */
@@ -287,7 +289,7 @@
         if (pickMinHour !== r.h) r.m.value = v.min ?? "";
         if (pickHour !== r.h) r.ml.value = v.ml ?? "";
         if (act !== r.memo) { r.memo.value = v.memo || ""; grow(r.memo); }
-        setVit(r.vit, !!v.vit); setCount(r.pee, cnt(v.pee), r.h); setCount(r.poo, cnt(v.poo), r.h);
+        setVit(r.vit, !!v.vit); setCount(r.pee, cnt(v.pee), r.h); setCount(r.poo, cnt(v.poo), r.h); setVit(r.spit, !!v.spit);
       }
       r.el.classList.toggle("current", today && i === nowH);
     });
@@ -297,7 +299,7 @@
     const rows = {}; R.forEach((r) => { rows[r.h] = rowFromDom(r); r.el.classList.toggle("filled", !isEmpty(rows[r.h])); });
     const s = summarize(rows);
     $("sFeeds").textContent = s.feeds; $("sMl").textContent = s.ml; $("sPee").textContent = s.pee; $("sPoo").textContent = s.poo;
-    $("tFeeds").textContent = s.feeds + "회"; $("tMl").textContent = s.ml; $("tVit").textContent = s.vit; $("tPee").textContent = s.pee; $("tPoo").textContent = s.poo;
+    $("tFeeds").textContent = s.feeds + "회"; $("tMl").textContent = s.ml; $("tVit").textContent = s.vit; $("tPee").textContent = s.pee; $("tPoo").textContent = s.poo; $("tSpit").textContent = s.spit;
     renderSince();
     renderVitWarn();
   }
@@ -1056,7 +1058,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261122074101";
+  const APP_VERSION = "20261122074252";
   async function checkUpdate() {
     if (busy()) return;
     try {
