@@ -446,6 +446,7 @@
       S.dayMemo = j.memo || "";
       const pm = loadPending()[`${date}/memo`];
       if (document.activeElement !== $("dayMemo") && !memoTimer && !pm) $("dayMemo").value = S.dayMemo;
+      growMemo();
       applySettings(j.settings || {});
       renderRows(); renderTitle();
       setOnline(true);
@@ -499,6 +500,9 @@
     catch (e) { handleErr(e); }
     finally { memoBusy = false; if (memoAgain) { memoAgain = false; saveMemo(); } }
   }
+  // the day's note grows with its text, so nothing hides behind an inner scrollbar
+  function growMemo() { const t = $("dayMemo"); t.style.height = "auto"; t.style.height = Math.max(160, t.scrollHeight + 2) + "px"; }
+  $("dayMemo").addEventListener("input", growMemo);
   $("dayMemo").addEventListener("input", () => {
     putPending(`${S.date}/memo`, { memo: $("dayMemo").value, at: new Date().toISOString() });
     clearTimeout(memoTimer); memoTimer = setTimeout(() => { memoTimer = null; saveMemo(); }, 800);
@@ -652,6 +656,7 @@
     flushAll(); S.date = key; S.rows = {}; S.prevRows = {}; S.dayMemo = "";
     const pm = loadPending()[`${key}/memo`];
     $("dayMemo").value = pm ? pm.memo : "";
+    growMemo();
     renderTitle(); renderRows(); loadDay();
   }
   function shift(n) {
@@ -1049,7 +1054,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261122073720";
+  const APP_VERSION = "20261122073850";
   async function checkUpdate() {
     if (busy()) return;
     try {
