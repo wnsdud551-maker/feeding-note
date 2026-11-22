@@ -291,6 +291,17 @@ header.bar {
 .guide textarea:focus { outline: none; max-height: 12em; }
 .guide:focus-within { border-color: var(--accent); }
 .guide textarea::placeholder { color: var(--muted); opacity: .6; }
+.news-bg { align-items: center; padding: 16px; }
+.news { width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 20px 18px 16px; display: grid; gap: 12px; box-shadow: 0 18px 40px -20px rgba(40, 20, 40, .45); }
+.news h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; text-align: center; }
+.news h4 { margin: 0 0 6px; font-size: .76rem; color: var(--muted); font-weight: 600; letter-spacing: .03em; }
+.news ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.news li { display: flex; gap: 8px; align-items: flex-start; font-size: .93rem; line-height: 1.45; word-break: keep-all; }
+.news .tag { flex: none; font-size: .72rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; margin-top: 1px; }
+.news .tag.add { background: var(--vit-soft); color: var(--vit); }
+.news .tag.chg { background: var(--accent-soft); color: var(--accent); }
+.news .tag.fix { background: var(--pee-soft); color: var(--pee); }
+.news .nowbtn { justify-self: center; padding: 10px 28px; margin-top: 4px; }
 .status { margin-top: 10px; font-size: .78rem; color: var(--muted); }
 .status.warn { color: var(--poo); }
 
@@ -515,6 +526,13 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </div>
 </div>
 
+<div class="picker-bg news-bg" id="newsSheet" hidden>
+  <div class="news" role="dialog" aria-modal="true" aria-labelledby="newsTitle">
+    <h3 id="newsTitle">새로 바뀐 점이 있어요 ✨</h3>
+    <div id="newsBody"></div>
+    <button type="button" class="nowbtn" id="newsOk">확인했어요</button>
+  </div>
+</div>
 <div class="picker-bg" id="minSheet" hidden>
   <div class="picker" role="dialog" aria-modal="true" aria-labelledby="minTitle">
     <h3 id="minTitle">몇 분?</h3>
@@ -547,6 +565,6 @@ table.daily tfoot td { font-weight: 600; border-bottom: 0; border-top: 1.5px sol
   </form>
 </section>
 <div class="toast" id="toast" hidden></div>
-<script src="app.js?v=20261122074551"></script>
+<script src="app.js?v=20261122075201"></script>
 </body>
 </html>

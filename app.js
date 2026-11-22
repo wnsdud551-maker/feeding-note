@@ -560,6 +560,7 @@
   function hideSheet() {
     if (openSheetId === "mlSheet") closePicker();
     else if (openSheetId === "minSheet") closeMinPicker();
+    else if (openSheetId === "newsSheet") closeNews();
     openSheetId = null;
   }
   // a guard entry sits on top of the start page: the first back on the log screen only shows a notice,
@@ -579,7 +580,7 @@
       exitTimer = setTimeout(armGuard, 2000);
     }
   });
-  ["mlSheet", "minSheet"].forEach((id) => $(id).addEventListener("click", (e) => { if (e.target === $(id)) requestClose(); }));
+  ["mlSheet", "minSheet", "newsSheet"].forEach((id) => $(id).addEventListener("click", (e) => { if (e.target === $(id)) requestClose(); }));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSheetId) requestClose(); });
 
   /* ---------- formula amount picker ---------- */
@@ -720,6 +721,35 @@
   });
   window.addEventListener("pagehide", flushAll);
   window.addEventListener("online", () => { if (CONN) replayPending(); });
+
+  /* ---------- "what's new": shown once per phone after an update ---------- */
+  // Newest first. Add an entry here with every change people will notice (see CLAUDE.md).
+  // t: "추가" (new), "변경" (changed), "고침" (fixed). Keep each line short and plain.
+  const NEWS = [
+    { id: "2026-11-22", date: "11월 22일", items: [
+      { t: "추가", text: "업데이트가 있으면 이렇게 처음 한 번만 알려드려요" },
+      { t: "추가", text: "시간마다 게움 🤮 표시를 할 수 있어요" },
+      { t: "추가", text: "하루에 몇 번 게웠는지 위쪽 요약과 통계에 나와요" },
+      { t: "추가", text: "통계에 '비타민 먹은 날'이 생겼어요" },
+      { t: "변경", text: "비타민 알림이 하루 종일 보여요 (저녁 6시부터는 주황색)" },
+      { t: "변경", text: "수유 기준이 표를 내려도 위쪽에 고정돼요" },
+    ] },
+  ];
+  const NKEY = "feednote-news-seen";
+  function showNewsIfAny() {
+    if (!NEWS.length) return;
+    const seen = ls.get(NKEY, null);
+    // a phone that never saw a notice gets only the latest one, not the whole history
+    const unseen = seen ? NEWS.filter((n) => n.id > seen).slice(0, 3) : NEWS.slice(0, 1);
+    if (!unseen.length || openSheetId) return;
+    const cls = { 추가: "add", 변경: "chg", 고침: "fix" };
+    $("newsBody").innerHTML = unseen.map((n) => `<section><h4>${esc(n.date)}</h4><ul>${n.items.map((i) =>
+      `<li><span class="tag ${cls[i.t] || "add"}">${esc(i.t)}</span><span>${esc(i.text)}</span></li>`).join("")}</ul></section>`).join("");
+    showSheet("newsSheet");
+    $("newsOk").focus({ preventScroll: true });
+  }
+  function closeNews() { $("newsSheet").hidden = true; ls.set(NKEY, NEWS[0].id); }
+  $("newsOk").addEventListener("click", requestClose);
 
   /* ---------- tabs: 수유노트 / 통계 / 소독 ---------- */
   const currentTab = () => (!$("statsView").hidden ? "stats" : !$("cleanView").hidden ? "clean" : "log");
@@ -1064,7 +1094,7 @@
   $("resetConn").addEventListener("click", () => { $("setupView").hidden = false; $("app").hidden = true; window.scrollTo(0, 0); });
 
   /* ---------- updates: phones keep old copies, so check for a newer version and reload ---------- */
-  const APP_VERSION = "20261122074551";
+  const APP_VERSION = "20261122075201";
   async function checkUpdate() {
     if (busy()) return;
     try {
@@ -1091,6 +1121,7 @@
   // the browser would otherwise put back the old scroll position after loading
   try { history.scrollRestoration = "manual"; } catch (e) {}
   requestAnimationFrame(scrollToNow);
+  setTimeout(showNewsIfAny, 700);
   replayPending().finally(() => loadDay().then(() => { if (window.scrollY < 50 || !scrolledByUser) scrollToNow(); }));
   let scrolledByUser = false;
   ["touchstart", "wheel"].forEach((ev) => window.addEventListener(ev, () => { scrolledByUser = true; }, { once: true, passive: true }));
